@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Product Tree Mindmap Explorer - Root Rotation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- D3.js for Mindmap Rendering -->
@@ -29,6 +32,135 @@
         }
     </script>
     <style>
+        :root {
+            --bg-main: #f6f1e8;
+            --bg-accent: #dbeafe;
+            --surface: rgba(255, 252, 247, 0.82);
+            --border-soft: rgba(148, 163, 184, 0.22);
+            --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08);
+            --shadow-strong: 0 24px 70px rgba(15, 23, 42, 0.14);
+        }
+        body {
+            font-family: "Manrope", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 28%),
+                radial-gradient(circle at top right, rgba(96, 165, 250, 0.16), transparent 26%),
+                linear-gradient(180deg, #fffdf8 0%, #f4f0e8 52%, #eef4ff 100%);
+        }
+        .dark body {
+            background:
+                radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 26%),
+                radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 24%),
+                linear-gradient(180deg, #020617 0%, #0f172a 48%, #111827 100%);
+        }
+        .app-shell {
+            min-height: 100vh;
+            padding: 16px;
+            gap: 14px;
+        }
+        .topbar-shell,
+        .fallback-shell,
+        .workspace-shell,
+        .panel-shell,
+        .canvas-shell,
+        .inspector-shell {
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-soft);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .topbar-shell {
+            min-height: 84px;
+            padding: 18px 22px;
+            border-radius: 30px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.78));
+        }
+        .dark .topbar-shell {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.8));
+        }
+        .fallback-shell {
+            border-radius: 30px;
+            padding: 22px;
+            background: linear-gradient(145deg, rgba(255, 252, 247, 0.92), rgba(241, 245, 249, 0.8));
+        }
+        .dark .fallback-shell {
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.84));
+        }
+        .fallback-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+            gap: 18px;
+            align-items: start;
+        }
+        .metric-card {
+            border-radius: 22px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(255, 255, 255, 0.76);
+            padding: 16px 18px;
+        }
+        .dark .metric-card {
+            background: rgba(15, 23, 42, 0.76);
+        }
+        .workspace-shell {
+            gap: 14px;
+            padding: 2px;
+            border-radius: 32px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.22));
+        }
+        .dark .workspace-shell {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.56), rgba(15, 23, 42, 0.24));
+        }
+        .panel-shell {
+            border-radius: 28px;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.84));
+        }
+        .dark .panel-shell {
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.92), rgba(15, 23, 42, 0.84));
+        }
+        .canvas-shell {
+            min-height: 920px;
+            border-radius: 30px;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.78));
+            box-shadow: var(--shadow-strong);
+        }
+        .dark .canvas-shell {
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.94), rgba(15, 23, 42, 0.86));
+        }
+        .floating-toolbar {
+            border-radius: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(255, 255, 255, 0.78);
+            box-shadow: var(--shadow-soft);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        .dark .floating-toolbar {
+            background: rgba(2, 6, 23, 0.78);
+        }
+        .inspector-shell {
+            border-radius: 28px 0 0 28px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.88));
+        }
+        .dark .inspector-shell {
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.96), rgba(15, 23, 42, 0.88));
+        }
+        .glass-button {
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(255, 255, 255, 0.7);
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+        }
+        .dark .glass-button {
+            background: rgba(15, 23, 42, 0.74);
+        }
+        #markdown-editor,
+        #inspector-sku-val {
+            font-family: "IBM Plex Mono", monospace;
+        }
+        #mindmap-container {
+            min-height: 840px;
+        }
         .node {
             cursor: pointer;
         }
@@ -75,59 +207,552 @@
             background-image: radial-gradient(#334155 1px, transparent 1px);
             background-size: 20px 20px;
         }
+        @media (max-width: 1024px) {
+            .fallback-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .app-shell {
+                padding: 10px;
+                gap: 10px;
+            }
+            .topbar-shell,
+            .fallback-shell {
+                border-radius: 22px;
+                padding: 16px;
+            }
+        }
     </style>
 </head>
-<body class="h-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200">
-    <div class="flex h-full flex-col">
+<body class="min-h-screen overflow-x-hidden overflow-y-auto bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+    <div class="app-shell flex flex-col">
         <!-- Header -->
-        <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 z-10 shadow-sm">
-            <div class="flex items-center space-x-3">
-                <div class="p-2 bg-blue-600 text-white rounded-lg">
+        <header class="topbar-shell flex shrink-0 items-center justify-between z-10">
+            <div class="flex items-center space-x-4">
+                <div class="p-3 bg-slate-950 dark:bg-white text-white dark:text-slate-950 rounded-2xl shadow-lg">
                     <i data-lucide="git-fork" class="w-6 h-6 rotate-90"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold tracking-tight">Product Tree Explorer</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Bản đồ cấu trúc sản phẩm 6 cấp độ trực quan</p>
+                    <div class="inline-flex items-center gap-2 rounded-full border border-slate-200/80 dark:border-slate-700/80 bg-white/70 dark:bg-slate-900/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                        Root Rotation System Atlas
+                    </div>
+                    <h1 class="mt-2 text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">Product Tree Explorer</h1>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Không gian khám phá cấu trúc sản phẩm 6 cấp, vừa trực quan cho nội bộ vừa đọc được bằng crawler.</p>
                 </div>
             </div>
 
             <!-- Stats Badge Quick View -->
-            <div class="hidden lg:flex items-center space-x-4">
-                <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs">
-                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                    <span class="font-medium">Brands: <span id="stat-brands" class="font-bold text-indigo-600 dark:text-indigo-400">0</span></span>
+            <div class="hidden xl:flex items-center space-x-3">
+                <div class="metric-card flex items-center space-x-3 py-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                    <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Brands</span>
+                    <span id="stat-brands" class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400">3</span>
                 </div>
-                <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs">
-                    <span class="w-2 h-2 rounded-full bg-teal-500"></span>
-                    <span class="font-medium">Tiers: <span id="stat-tiers" class="font-bold text-teal-600 dark:text-teal-400">0</span></span>
+                <div class="metric-card flex items-center space-x-3 py-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+                    <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Tiers</span>
+                    <span id="stat-tiers" class="text-lg font-extrabold text-teal-600 dark:text-teal-400">7</span>
                 </div>
-                <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs">
-                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                    <span class="font-medium">Total SKUs: <span id="stat-skus" class="font-bold text-rose-600 dark:text-rose-400">0</span></span>
+                <div class="metric-card flex items-center space-x-3 py-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                    <span class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">SKUs</span>
+                    <span id="stat-skus" class="text-lg font-extrabold text-rose-600 dark:text-rose-400">204</span>
                 </div>
             </div>
 
             <!-- Controls (Dark Mode, Export, Custom Data) -->
             <div class="flex items-center space-x-2">
-                <button id="toggle-sidebar-btn" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Bật/Tắt Sidebar">
+                <button id="toggle-sidebar-btn" class="glass-button p-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-xl transition" title="Bật/Tắt Sidebar">
                     <i data-lucide="sidebar" class="w-5 h-5"></i>
                 </button>
-                <button id="theme-btn" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Đổi giao diện">
+                <button id="theme-btn" class="glass-button p-2.5 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white rounded-xl transition" title="Đổi giao diện">
                     <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
                     <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
                 </button>
-                <button id="export-png-btn" class="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-sm">
+                <button id="export-png-btn" class="flex items-center space-x-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.18em] bg-slate-950 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 text-white rounded-2xl transition shadow-lg">
                     <i data-lucide="download" class="w-3.5 h-3.5"></i>
                     <span>Tải PNG</span>
                 </button>
             </div>
         </header>
 
+        <!-- Static fallback content for crawlers/readers that do not execute JavaScript -->
+        <section class="shrink-0 overflow-hidden">
+            <div class="fallback-shell">
+                <div class="fallback-grid">
+                    <div>
+                        <div class="inline-flex items-center gap-2 rounded-full bg-amber-100/80 dark:bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
+                            Source-First Mode
+                        </div>
+                        <h2 class="mt-3 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Mindmap vừa đẹp để xem, vừa dễ đọc với NotebookLM</h2>
+                        <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+                            Khu vực này giữ một bản nguồn tĩnh nằm sẵn trong DOM để các hệ thống không chạy JavaScript vẫn đọc được đầy đủ cấu trúc product tree. Phần tương tác D3 bên dưới vẫn hoạt động độc lập như cũ.
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="metric-card">
+                            <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">Brands</div>
+                            <div class="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">3</div>
+                            <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Root Rotation, Phygital và các nhánh liên quan</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">Tiers</div>
+                            <div class="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">7</div>
+                            <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Main, Luxury, Hook/Gift và các nhóm phụ</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">SKUs</div>
+                            <div class="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">204</div>
+                            <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">Dữ liệu sống cho tìm kiếm, export và đối chiếu</div>
+                        </div>
+                    </div>
+                </div>
+                <details open class="mt-5">
+                    <summary class="cursor-pointer text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        Static product-tree source for crawlers and NotebookLM
+                    </summary>
+                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        Full plain-text fallback source embedded directly in HTML.
+                    </p>
+                <pre id="static-markdown-source" class="mt-3 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-4 text-[11px] leading-relaxed text-slate-700 dark:text-slate-200"># 🌳 CẤP 1: BRAND - ROOT ROTATION
+
+## 🔸 CẤP 2: TIER - MAIN (CHỦ ĐẠO)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o hai d&#226;y v&#224; ba lỗ
+- Cấp 6 (SKU): 01TL01 (&#193;o Croptop Hai D&#226;y Butterfly Origami - Denim)
+- Cấp 6 (SKU): 01TL04 (&#193;o Croptop Tay D&#224;i Butterfly Origami - Thun Spandex)
+##### ▪️ Cấp 5: &#193;o ống / &#193;o yếm / Corset
+- Cấp 6 (SKU): 01TL05 (&#193;o Qu&#226;y Crochet Jellyfish)
+- Cấp 6 (SKU): 01TN03 (&#193;o Yếm Jean Hai Mặt - Thun Spandex &amp; Denim)
+- Cấp 6 (SKU): 01TN04 (&#193;o Yếm Croptop The Grecian - Kaki / Spandex)
+- Cấp 6 (SKU): 01TN05 (&#193;o Yếm Hở Lưng Butterfly - Denim)
+- Cấp 6 (SKU): 01TN06 (&#193;o Corset D&#226;y Thắt Origami - Denim / Kaki)
+##### ▪️ Cấp 5: &#193;o sơ mi
+- Cấp 6 (SKU): 01TL03 (&#193;o Sơ Mi Nữ Bamboo Origami - Cotton tre)
+- Cấp 6 (SKU): 01TN08 (&#193;o Sơ Mi Utility Pocket - Denim / Kaki)
+##### ▪️ Cấp 5: &#193;o thun
+- Cấp 6 (SKU): 01TL07 (&#193;o Bra Kh&#244;ng D&#226;y The Shell)
+- Cấp 6 (SKU): 01TL08 (Art Tee Hồn Việt &#194;u Lạc / &#193;o D&#224;i)
+
+#### ▫️ Cấp 4: V&#225;y
+##### ▪️ Cấp 5: Ch&#226;n v&#225;y
+- Cấp 6 (SKU): 01BL01 (Ch&#226;n V&#225;y Hoa Origami - Denim / Spandex)
+- Cấp 6 (SKU): 01BL02 (Ch&#226;n V&#225;y Mini 3D T&#250;i Hộp - Denim)
+- Cấp 6 (SKU): 01BL03 (Ch&#226;n V&#225;y Butterfly Origami - Denim)
+- Cấp 6 (SKU): 01BL04 (Ch&#226;n V&#225;y The Wave - Denim)
+- Cấp 6 (SKU): 01BN04 (Ch&#226;n V&#225;y Mini The Pocket - Denim / Kaki)
+- Cấp 6 (SKU): 01BN05 (Ch&#226;n V&#225;y &#212;m The Patchwork - Denim / Kaki)
+- Cấp 6 (SKU): 01BN10 (Ch&#226;n V&#225;y D&#224;i T&#250;i Hộp Zipper - Denim / Kaki)
+- Cấp 6 (SKU): 01BN11 (Ch&#226;n V&#225;y D&#224;i The Pocket - Denim / Kaki)
+
+#### ▫️ Cấp 4: Đầm
+##### ▪️ Cấp 5: Đầm
+- Cấp 6 (SKU): 01DL01 (V&#225;y Denim Butterfly Origami)
+- Cấp 6 (SKU): 01DL02 (Đầm Yếm Butterfly Origami - Denim)
+- Cấp 6 (SKU): 01DN01 (Đầm &#212;m Body D&#224;i The Pocket - Denim / Kaki)
+
+#### ▫️ Cấp 4: Quần
+##### ▪️ Cấp 5: Quần đ&#249;i (Shorts)
+- Cấp 6 (SKU): 01BL05 (Quần Short Denim Ocean)
+- Cấp 6 (SKU): 01BN06 (Quần Short The Pocket - Denim / Kaki)
+- Cấp 6 (SKU): 01BN07 (Quần Lửng Ống Rộng The Pocket - Denim / Kaki)
+
+#### ▫️ Cấp 4: &#193;o kho&#225;c, &#193;o cho&#224;ng &amp; Vest
+##### ▪️ Cấp 5: &#193;o cho&#224;ng
+- Cấp 6 (SKU): 01OL02 (Măng T&#244; Nữ D&#225;ng D&#224;i Hai Lớp - Kaki &amp; Lụa)
+##### ▪️ Cấp 5: &#193;o blazer
+- Cấp 6 (SKU): 01OL03 (Blazer Họa Tiết &#212; Vu&#244;ng - Kaki &amp; Denim)
+##### ▪️ Cấp 5: &#193;o kho&#225;c ngo&#224;i
+- Cấp 6 (SKU): 01OL04 (Bomber The Ocean)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o thun
+- Cấp 6 (SKU): BTS-L3 (&#193;o Thun Regular Raanana - Đen/Trắng/Đỏ)
+- Cấp 6 (SKU): BTS-N9-FOX (&#193;o Thun Regular Nine Dots - Fox)
+- Cấp 6 (SKU): BTS-N9-GECKO (&#193;o Thun Regular Nine Dots - Gecko)
+
+#### ▫️ Cấp 4: Quần
+##### ▪️ Cấp 5: Quần jean
+- Cấp 6 (SKU): 01BN02 (Quần Jean Ống Su&#244;ng T&#250;i Hộp - Denim)
+- Cấp 6 (SKU): 01BN03-DE (Quần Jean Zipper Gạch B&#244;ng Gi&#243; - Denim)
+- Cấp 6 (SKU): 01BN09-DE (Quần Ống Rộng Patchwork Sọc - Denim)
+##### ▪️ Cấp 5: Quần t&#250;i hộp / Quần d&#224;i
+- Cấp 6 (SKU): 01BN03-KA (Quần Jean Zipper Gạch B&#244;ng Gi&#243; - Kaki)
+- Cấp 6 (SKU): 01BN08 (Quần Patchwork The Strap - Kaki)
+- Cấp 6 (SKU): 01BN09-KA (Quần Ống Rộng Patchwork Sọc - Kaki)
+##### ▪️ Cấp 5: Quần jogger
+- Cấp 6 (SKU): 01BN12 (Quần Jogger The Sweat - Nỉ / Kaki)
+
+#### ▫️ Cấp 4: &#193;o kho&#225;c
+##### ▪️ Cấp 5: &#193;o kho&#225;c
+- Cấp 6 (SKU): 01ON01 (Gile Hai Mặt Gạch B&#244;ng Gi&#243; - Kaki Denim / Poly Quilted)
+- Cấp 6 (SKU): 01ON02 (Bomber Nam Hai Mặt C&#243; Mũ - Denim / Da)
+- Cấp 6 (SKU): 01ON04 (Blazer D&#226;y R&#250;t The Straps - Kaki)
+- Cấp 6 (SKU): 01ON05 (&#193;o Kho&#225;c Denim Type II)
+- Cấp 6 (SKU): 01ON06 (Gile C&#243; Mũ Utility Strap - Denim / Kaki)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nữ
+#### ▫️ Cấp 4: T&#250;i tote
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): 01AN04 (T&#250;i Tote The Stripes - Denim / Kaki)
+#### ▫️ Cấp 4: T&#250;i quai x&#225;ch / Đeo ch&#233;o
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01BL01 (T&#250;i X&#225;ch Nữ Denim Evita)
+- Cấp 6 (SKU): A01BL05 (T&#250;i Cầm Tay Đan M&#243;c Aria)
+- Cấp 6 (SKU): A01BL06 (T&#250;i Đeo Ch&#233;o Mini Doris)
+
+---
+
+## 🔸 CẤP 2: TIER - LUXURY (CAO CẤP)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: &#193;o kho&#225;c, &#193;o cho&#224;ng &amp; Vest
+##### ▪️ Cấp 5: &#193;o kho&#225;c
+- Cấp 6 (SKU): 01OL01 (Bomber Unisex Cocoon - Vải ren vụn)
+- Cấp 6 (SKU): 01OL05 (Blazer The Ocean)
+#### ▫️ Cấp 4: Đầm
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): 01DL03 (Đầm Baby Doll The Wave - Denim)
+- Cấp 6 (SKU): 01DL04 (Đầm Polo Butterfly K&#232;m T&#250;i X&#225;ch)
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o ống / Hoodie
+- Cấp 6 (SKU): 01TL06 (&#193;o Croptop Hoodie Crochet The Octopus)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nữ
+#### ▫️ Cấp 4: T&#250;i x&#225;ch c&#225;c loại
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): 01AN01 (T&#250;i Tote Envelope - Denim / Kaki)
+- Cấp 6 (SKU): 01AN02 (T&#250;i Đeo Vai Denim Dragon Wing)
+- Cấp 6 (SKU): 01AN03 (T&#250;i X&#225;ch Nữ Denim The Fish)
+- Cấp 6 (SKU): A01BL04 (T&#250;i x&#225;ch denim Maxra)
+- Cấp 6 (SKU): A01BL07 (T&#250;i X&#225;ch Nữ Jada)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Mũ
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01HL01 (Mũ Beret Cocoon)
+
+### 🔹 Cấp 3: Nh&#224; cửa &amp; Đời sống
+#### ▫️ Cấp 4: Trang tr&#237; nh&#224; cửa
+##### ▪️ Cấp 5: Khung ảnh &amp; vật trang tr&#237; tường
+- Cấp 6 (SKU): A01CW01-01 (Tranh Rồng Việt Nghệ Thuật)
+- Cấp 6 (SKU): A01CW01-02 (Tranh L&#226;n Việt Nghệ Thuật)
+- Cấp 6 (SKU): A01CW01-03 (Tranh Quy Việt Nghệ Thuật)
+- Cấp 6 (SKU): A01CW01-04 (Tranh Phụng Việt Nghệ Thuật)
+
+### 🔹 Cấp 3: Sở th&#237;ch &amp; Sưu tầm
+#### ▫️ Cấp 4: Đồ chơi - Giải tr&#237;
+##### ▪️ Cấp 5: Th&#250; b&#244;ng
+- Cấp 6 (SKU): A01SL01 (TH&#218; B&#212;NG ĐEO VAI TIFFANY)
+- Cấp 6 (SKU): A01SL02 (TH&#218; B&#212;NG ĐEO VAI ĐẠI B&#192;NG)
+- Cấp 6 (SKU): A01SL03 (TH&#218; B&#212;NG ĐEO VAI CON M&#200;O)
+
+---
+
+## 🔸 CẤP 2: TIER - HOOK / GIFT (MỒI NHỬ / QU&#192; TẶNG)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o hai d&#226;y v&#224; ba lỗ
+- Cấp 6 (SKU): 01TL02 (&#193;o Tanktop Họa Tiết Origami - Butterfly / The Dream / Flower / Monalisa)
+##### ▪️ Cấp 5: &#193;o thun
+- Cấp 6 (SKU): 01TN01 (&#193;o thun Spandex Dinosaur Spine)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o thun
+- Cấp 6 (SKU): OTS-L3 (&#193;o Thun Oversize Raanana)
+- Cấp 6 (SKU): OTS-N9-FOX (&#193;o Thun Oversize Nine Dots - Fox)
+- Cấp 6 (SKU): OTS-N9-GECKO (&#193;o Thun Oversize Nine Dots - Gecko)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nam
+#### ▫️ Cấp 4: B&#243;p/ V&#237;
+##### ▪️ Cấp 5: V&#237; đựng tiền xu
+- Cấp 6 (SKU): 01AN06 (T&#250;i Quần Jean)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Mũ
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01HL02 (Mũ bucket hai mặt Cocoon - Denim / Lụa / Spandex)
+- Cấp 6 (SKU): HDN0122 (Mũ Hoodie Thun Th&#225;o Rời)
+#### ▫️ Cấp 4: Khăn cho&#224;ng
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01SC01-SI (Tu Linh Women Silk Scarf)
+- Cấp 6 (SKU): A01SC02-CT (Vietnam Fables Unisex Cotton Scarf)
+- Cấp 6 (SKU): A01SC03-SI (Tu Linh Women Twilly Silk Scarf)
+- Cấp 6 (SKU): A01SC04-CT (Vietnam Fables Cotton Scarf 5x85)
+
+### 🔹 Cấp 3: Nh&#224; cửa &amp; Đời sống
+#### ▫️ Cấp 4: Trang tr&#237; nh&#224; cửa
+##### ▪️ Cấp 5: Khung ảnh &amp; vật trang tr&#237; tường
+- Cấp 6 (SKU): A01FW01 (3D Fabric Wall Hanging - Mona Lisa / Girl with pearl / Lady with an ermine / The Scream)
+- Cấp 6 (SKU): A01FW02 (Tote shaped Wall Hanging Root Rotation)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nữ
+#### ▫️ Cấp 4: T&#250;i tote
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): ATTB01 (Tote vải handmade Game / Manga / Meme)
+
+### 🔹 Cấp 3: Sở Th&#237;ch &amp; Sưu tầm
+#### ▫️ Cấp 4: Qu&#224; Lưu Niệm
+##### ▪️ Cấp 5: Nam Ch&#226;m
+- Cấp 6 (SKU): A01MN01 (Wooden Magnet Ruto Kaiten Emoji)
+
+
+======================================================
+
+
+# 🌳 CẤP 1: BRAND - ROOT ROTATION PHYGITAL (RRP)
+
+## 🔸 CẤP 2: TIER - MAIN (CHỦ ĐẠO)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o thun (Baby Tee)
+- Cấp 6 (SKU): PHY-BBT-057 (&#193;o Baby Tee - M&#232;o L&#224;m G&#236;?)
+- Cấp 6 (SKU): PHY-BBT-058 (&#193;o Baby Tee - M&#232;o Ăn G&#236;?)
+- Cấp 6 (SKU): PHY-BBT-059 (&#193;o Baby Tee - M&#232;o Đi Đ&#226;u?)
+- Cấp 6 (SKU): PHY-BBT-081 (&#193;o Baby Tee Viet Youngsters - B&#233; Ngoan)
+- Cấp 6 (SKU): PHY-BBT-082 (&#193;o Baby Tee Viet Youngsters - Doubt)
+- Cấp 6 (SKU): PHY-BBT-083 (&#193;o Baby Tee Viet Youngsters - Người Gi&#224;u)
+- Cấp 6 (SKU): PHY-BBT-084 (&#193;o Baby Tee Viet Youngsters - Overthinking)
+
+### 🔹 Cấp 3: Thời Trang Nam / Unisex
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o thun (Oversize)
+- Cấp 6 (SKU): PHY-OVE-037 (&#193;o Thun AR Uchiha Itachi Fanart)
+- Cấp 6 (SKU): PHY-OVE-044 (&#193;o Thun AR Kyuubi Naruto Fanart)
+- Cấp 6 (SKU): PHY-OVE-049 (&#193;o Thun AR Sasuke Fanart)
+- Cấp 6 (SKU): PHY-OVE-050 (&#193;o Thun AR Hatake Kakashi Fanart)
+- Cấp 6 (SKU): PHY-OVE-051 (&#193;o Thun AR Pikachu Fanart)
+- Cấp 6 (SKU): PHY-OVE-052 (&#193;o Thun AR Bulbasaur Fanart)
+- Cấp 6 (SKU): PHY-OVE-053 (&#193;o Thun AR Snorlax Fanart)
+- Cấp 6 (SKU): PHY-OVE-055 (&#193;o Thun AR Nakroth Fanart)
+- Cấp 6 (SKU): PHY-OVE-056 (&#193;o Thun AR Yae Miko Fanart)
+- Cấp 6 (SKU): PHY-OVE-060 (&#193;o Thun AR M&#232;o L&#224;m G&#236;?)
+- Cấp 6 (SKU): PHY-OVE-061 (&#193;o Thun AR M&#232;o Ăn G&#236;?)
+- Cấp 6 (SKU): PHY-OVE-062 (&#193;o Thun AR M&#232;o Đi Đ&#226;u?)
+- Cấp 6 (SKU): PHY-OVE-063 (&#193;o Thun AR Florentino Fanart)
+- Cấp 6 (SKU): PHY-OVE-064 (&#193;o Thun AR AOI Fanart)
+- Cấp 6 (SKU): PHY-OVE-070 (&#193;o Thun AR Popeyes Scrap Iron)
+- Cấp 6 (SKU): PHY-OVE-071 (&#193;o Thun AR C&#243; L&#224;m Th&#236; Mới C&#243; Ăn)
+- Cấp 6 (SKU): PHY-OVE-072 (&#193;o Thun AR Flex)
+- Cấp 6 (SKU): PHY-OVE-073 (&#193;o Thun AR Kh&#243; chịu v&#244; c&#249;ng)
+- Cấp 6 (SKU): PHY-OVE-074 (&#193;o Thun AR Delulu)
+- Cấp 6 (SKU): PHY-OVE-077 (&#193;o Thun AR B&#233; Ngoan)
+- Cấp 6 (SKU): PHY-OVE-079 (&#193;o Thun AR Người Gi&#224;u)
+- Cấp 6 (SKU): PHY-OVE-080 (&#193;o Thun AR Overthinking)
+- Cấp 6 (SKU): PHY-OVE-098 (&#193;o Thun AR Raiden Shogun Fanart)
+- Cấp 6 (SKU): PHY-OVE-099 (&#193;o Thun AR Raiden x Yae Fanart)
+
+#### ▫️ Cấp 4: Hoodie &amp; &#193;o nỉ
+##### ▪️ Cấp 5: &#193;o hoodie tay ngắn
+- Cấp 6 (SKU): PHY-OVE-044-046 (&#193;o Hoodie Kyuubi Naruto)
+- Cấp 6 (SKU): PHY-OVE-050-046 (&#193;o Hoodie Kakashi)
+- Cấp 6 (SKU): PHY-OVE-051-054 (&#193;o Hoodie Pikachu)
+- Cấp 6 (SKU): PHY-OVE-064-065 (&#193;o Hoodie AOI)
+- Cấp 6 (SKU): PHY-OVE-075 (&#193;o Hoodie 30 Chưa Phải L&#224; Tết)
+- Cấp 6 (SKU): PHY-OVE-076 (&#193;o Hoodie Ai Rồi cũng kh&#225;c)
+- Cấp 6 (SKU): PHY-OVE-078 (&#193;o Hoodie Doubt)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Phụ kiện th&#234;m
+##### ▪️ Cấp 5: Mặt d&#226;y chuyền v&#224; Charm
+- Cấp 6 (SKU): PHY-APD-004 (Mặt D&#226;y Chuyền Mickey / VN Fables 3D Plastic Case)
+
+---
+
+## 🔸 CẤP 2: TIER - LUXURY (CAO CẤP)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o thun
+- Cấp 6 (SKU): PHY-OVE-047 (&#193;o Thun Thực Tế Ảo Oversize Zoro The Green Dragon Exclusive)
+
+---
+
+## 🔸 CẤP 2: TIER - HOOK / GIFT (MỒI NHỬ / QU&#192; TẶNG)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: &#193;o
+##### ▪️ Cấp 5: &#193;o hoodie
+- Cấp 6 (SKU): PHY-OVE-038 (&#193;o Hoodie Tay Ngắn Naruto Chibi Fanart)
+- Cấp 6 (SKU): PHY-OVE-039 (&#193;o Hoodie Tay Ngắn My Neighbor Totoro)
+- Cấp 6 (SKU): PHY-OVE-040 (&#193;o Hoodie Tay Ngắn Spirited Away)
+##### ▪️ Cấp 5: &#193;o thun
+- Cấp 6 (SKU): PHY-OVE-041 (&#193;o Thun Oversize Zoro The Green Dragon)
+- Cấp 6 (SKU): PHY-OVE-114 (&#193;o thun Root Rotation Logo oversize)
+- Cấp 6 (SKU): PHY-OVE-115 (&#193;o thun Root Rotation Phygital Logo oversize)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Phụ kiện th&#234;m
+##### ▪️ Cấp 5: Mặt d&#226;y chuyền v&#224; Charm
+- Cấp 6 (SKU): PHY-ACB-001 (3D Kaiten / Ruto cardboard metal pendant)
+- Cấp 6 (SKU): PHY-APD-001 (Wooden pendant)
+- Cấp 6 (SKU): PHY-APD-002 (Metal pendant)
+- Cấp 6 (SKU): PHY-APD-003 (Mặt D&#226;y Chuyền Vải Thủ C&#244;ng)
+##### ▪️ Cấp 5: Tr&#226;m &amp; Ghim c&#224;i &#225;o
+- Cấp 6 (SKU): PHY-APIN-001 (Enamel Pin 24 Ruto Kaiten Emoji)
+##### ▪️ Cấp 5: Miếng v&#225; &#225;o / Huy hiệu
+- Cấp 6 (SKU): PHY-APH-001 (Huy Hiệu D&#225;n Trang Tr&#237; Quần &#193;o)
+##### ▪️ Cấp 5: Kh&#225;c
+- Cấp 6 (SKU): PHY-AFP-001 (T&#250;i &#193;o Thun Gắn Rời Bằng Khaki)
+
+#### ▫️ Cấp 4: Mũ
+##### ▪️ Cấp 5: Phụ kiện thay thế
+- Cấp 6 (SKU): PHY-HOO-046 (N&#243;n Hoodie Phản Quang Naruto)
+- Cấp 6 (SKU): PHY-HOO-054 (N&#243;n Hoodie Phản Quang Pokemon)
+- Cấp 6 (SKU): PHY-HOO-065 (N&#243;n Hoodie Phản Quang AOV)
+- Cấp 6 (SKU): PHY-HOO-113 (N&#243;n Hoodie Velcro)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nữ
+#### ▫️ Cấp 4: Phụ kiện t&#250;i
+##### ▪️ Cấp 5: Charm v&#224; phụ kiện gắn t&#250;i
+- Cấp 6 (SKU): PHY-ACHARM-001 (Gấu b&#244;ng Mini Ruto)
+- Cấp 6 (SKU): PHY-ACHARM-002 (Kaiten Plushed Doll)
+
+### 🔹 Cấp 3: Nh&#224; cửa &amp; Đời sống
+#### ▫️ Cấp 4: Trang tr&#237; nh&#224; cửa
+##### ▪️ Cấp 5: Kh&#225;c
+- Cấp 6 (SKU): ACC_CAT_001 (M&#232;o Nhựa M&#224;u Random - M&#244; H&#236;nh M&#232;o Chui Hộp)
+
+
+======================================================
+
+
+# 🌳 CẤP 1: BRAND - WATSNEW
+
+## 🔸 CẤP 2: TIER - HOOK / GIFT (MỒI NHỬ / QU&#192; TẶNG)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: V&#242;ng tay &amp; Lắc tay
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AJEW-DS-002 (V&#242;ng Tay Đập Th&#250; B&#244;ng H&#236;nh Chuột Lang)
+- Cấp 6 (SKU): PHY-AJEW-DS-003 (V&#242;ng Tay Da B&#242; Dệt Naruto)
+- Cấp 6 (SKU): PHY-AJEW-DS-006 (V&#242;ng Tay Da Dệt Mỏ Neo Cổ Điển)
+- Cấp 6 (SKU): PHY-AJEW-DS-007 (V&#242;ng Tay Bạc Th&#225;i B&#225;nh L&#225;i)
+- Cấp 6 (SKU): PHY-AJEW-DS-008 (V&#242;ng Tay Silicon Chủ Đề Videogame)
+- Cấp 6 (SKU): PHY-AJEW-DS-010 (V&#242;ng Tay Silicon Minecraft)
+- Cấp 6 (SKU): PHY-AJEW-DS-012 (V&#242;ng Tay Cặp Đ&#244;i Ma Nam Ch&#226;m)
+- Cấp 6 (SKU): PHY-AJEW-DS-013 (V&#242;ng Tay Cặp Rồng &#194;m Dương)
+- Cấp 6 (SKU): PHY-AJEW-DS-014 (V&#242;ng Tay Đ&#244;i Gốm Sứ Charm M&#232;o)
+- Cấp 6 (SKU): PHY-AJEW-DS-015 (V&#242;ng Tay Gốm Sứ Gấu v&#224; B&#225;nh Quy)
+- Cấp 6 (SKU): PHY-AJEW-DS-016 (V&#242;ng Tay Hạt Cườm Ma Nhỏ)
+- Cấp 6 (SKU): PHY-AJEW-DS-017 (V&#242;ng Tay Charm Sanrio)
+
+#### ▫️ Cấp 4: D&#226;y chuyền
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AJEW-DS-001 (D&#226;y Đeo Cổ Dạng D&#249; Bện Kh&#244;ng K&#232;m Mặt)
+- Cấp 6 (SKU): PHY-AJEW-DS-004 (V&#242;ng Cổ M&#232;o Đen Jiji)
+- Cấp 6 (SKU): PHY-AJEW-DS-005 (D&#226;y Chuyền Robot Khớp Nối)
+- Cấp 6 (SKU): PHY-AJEW-DS-011 (D&#226;y Chuyền Th&#233;p Khủng Long)
+
+#### ▫️ Cấp 4: Phụ kiện th&#234;m
+##### ▪️ Cấp 5: Tr&#226;m &amp; Ghim c&#224;i &#225;o
+- Cấp 6 (SKU): PHY-APIN-DS-010 (Ghim C&#224;i &#193;o Nhồi B&#244;ng Vuốt M&#232;o)
+- Cấp 6 (SKU): PHY-APIN-DS-011 (Ghim C&#224;i &#193;o Nhồi B&#244;ng Cinnamoroll)
+- Cấp 6 (SKU): PHY-APIN-DS-012 (Ghim C&#224;i DIY Sanrio Trang Tr&#237;)
+- Cấp 6 (SKU): PHY-APIN-DS-013 (Huy Hiệu C&#224;i &#193;o Pokemon)
+- Cấp 6 (SKU): APIN-DS-001 đến APIN-DS-005 (Pin Collection &quot;Girls Inspiration&quot; V1-V5)
+- Cấp 6 (SKU): APIN-DS-006 đến APIN-DS-010 (Pin Collection &quot;Boys in the House&quot; V1-V5)
+
+##### ▪️ Cấp 5: Miếng v&#225; &#225;o / Huy hiệu Velcro (Patches)
+- Cấp 6 (SKU): A2DP-DS-001 đến A2DP-DS-003 (2D Velcro Patch &quot;Emboidery Meme Pet&quot;)
+- Cấp 6 (SKU): A2DP-DS-004 đến A2DP-DS-006 (2D Velcro Patch &quot;Emboidery Fierce Animal&quot;)
+- Cấp 6 (SKU): A2DP-DS-007 đến A2DP-DS-009 (2D Velcro Patch &quot;Reflective Warrior&quot;)
+- Cấp 6 (SKU): A2DP-DS-010 đến A2DP-DS-014 (2D Velcro Patches &quot;Cute Psycho&quot;)
+- Cấp 6 (SKU): A2DP-DS-015 đến A2DP-DS-019 (2D Velcro Patches &quot;Rock It!&quot;)
+- Cấp 6 (SKU): A2DP-DS-020 đến A2DP-DS-024 (2D Velcro Patches &quot;Red Skull&quot;)
+- Cấp 6 (SKU): PHY-A3DP-DS-007 đến PHY-A3DP-DS-015 (3D Velcro Patches - Meme Cat V1-V9)
+- Cấp 6 (SKU): PHY-A3DP-DS-016 đến PHY-A3DP-DS-019 (3D Velcro Patches - Nhiều Meme)
+- Cấp 6 (SKU): PHY-A3DP-DS-020 đến PHY-A3DP-DS-029 (3D Velcro Patches - Game Lover)
+- Cấp 6 (SKU): PHY-A3DP-DS-030 đến PHY-A3DP-DS-034 (3D Velcro Patches - Game Mario)
+- Cấp 6 (SKU): PHY-A3DP-DS-035 đến PHY-A3DP-DS-039 (3D Velcro Patches - Game Quote)
+- Cấp 6 (SKU): PHY-A3DP-DS-040 đến PHY-A3DP-DS-049 (3D Velcro Patches - Manga Trending)
+- Cấp 6 (SKU): PHY-A3DP-DS-050 đến PHY-A3DP-DS-059 (3D Velcro Patches - Manga Popular)
+
+##### ▪️ Cấp 5: Mặt d&#226;y chuyền v&#224; Charm
+- Cấp 6 (SKU): DS-A03CH01 (Ruban de Perle Charm Set)
+- Cấp 6 (SKU): DS-A03CH02 (Choco Bijou Charm Set)
+- Cấp 6 (SKU): DS-A03CH03 (Outland Gear Charm Set)
+- Cấp 6 (SKU): DS-A03CH04 (Lock &amp; Load Charm Set)
+- Cấp 6 (SKU): DS-A03CH05 (Furry Amis Charm Set)
+- Cấp 6 (SKU): DS-A03CH06 (Jeu de Chance Charm Set)
+- Cấp 6 (SKU): ACHARM-DS-001 đến ACHARM-DS-003 (Charms Collection &quot;Knot Charm Heart&quot;)
+- Cấp 6 (SKU): ACHARM-DS-004 đến ACHARM-DS-006 (Charms Collection &quot;Knot Charm Flower&quot;)
+- Cấp 6 (SKU): ACHARM-DS-007 đến ACHARM-DS-009 (3D Velcro Patches Collection &quot;Silly Cabybara&quot;)
+- Cấp 6 (SKU): ACHARM-DS-010 đến ACHARM-DS-012 (Collection &quot;Plush Rabbit &amp; Bear&quot;)
+
+##### ▪️ Cấp 5: Kh&#225;c
+- Cấp 6 (SKU): AHAIR-DS-001 đến AHAIR-DS-002 (Funny Hair acessories collection &quot;Silly Hair&quot;)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nữ
+#### ▫️ Cấp 4: T&#250;i tote
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): ATTB-DS-001 (T&#250;i Vải Tote Canvas D&#225;ng Đứng)
+- Cấp 6 (SKU): ATTB-DS-002 (Bộ Dụng Cụ T&#244; M&#224;u DIY T&#250;i Vải Canvas / Vẽ Graffiti)
+#### ▫️ Cấp 4: Phụ kiện t&#250;i
+##### ▪️ Cấp 5: Charm v&#224; phụ kiện gắn t&#250;i
+- Cấp 6 (SKU): PHY-ACHARM-DS-007 (M&#243;c Kh&#243;a Nhồi B&#244;ng H&#236;nh M&#232;o)
+- Cấp 6 (SKU): PHY-ACHARM-DS-008 (M&#243;c Kh&#243;a H&#236;nh Ch&#250; Ch&#243; Tr&#225;i Tim)
+- Cấp 6 (SKU): PHY-ACHARM-DS-009 (M&#243;c Kh&#243;a Acrylic H&#236;nh Ch&#250; Ch&#243;)
+- Cấp 6 (SKU): PHY-ACHARM-DS-010 (M&#243;c Kh&#243;a Cặp Đ&#244;i Nam Ch&#226;m)
+
+### 🔹 Cấp 3: T&#250;i V&#237; Nam
+#### ▫️ Cấp 4: B&#243;p/ V&#237;
+##### ▪️ Cấp 5: V&#237; đựng tiền xu
+- Cấp 6 (SKU): AMNB-DS-002 (T&#250;i đựng tiền xu d&#226;y k&#233;o m&#224;u tương phản)
+#### ▫️ Cấp 4: Kh&#225;c
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AMNB-DS-001 (T&#250;i bảo vệ dụng cụ nhỏ EDC)
+
+### 🔹 Cấp 3: Nh&#224; cửa &amp; Đời sống
+#### ▫️ Cấp 4: Bộ đồ b&#224;n ăn
+##### ▪️ Cấp 5: B&#236;nh nước &amp; phụ kiện
+- Cấp 6 (SKU): ABOTT-DS-001 (B&#236;nh Nước Giữ Nhiệt Inox 304 500ml)
+#### ▫️ Cấp 4: Đ&#232;n
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AHOME-DS-001 (Đ&#232;n Ngủ Silicon H&#236;nh Thỏ Cảm Ứng)
+#### ▫️ Cấp 4: Trang tr&#237; nh&#224; cửa
+##### ▪️ Cấp 5: Kh&#225;c
+- Cấp 6 (SKU): AHOME-DS-003 (L&#225;t Gỗ Th&#244;ng Tự Nhi&#234;n Trang Tr&#237; Thủ C&#244;ng)
+
+### 🔹 Cấp 3: Sở Th&#237;ch &amp; Sưu tầm
+#### ▫️ Cấp 4: Qu&#224; Lưu Niệm
+##### ▪️ Cấp 5: Nam Ch&#226;m
+- Cấp 6 (SKU): AHOME-DS-002 (Nam Ch&#226;m Tủ Lạnh 3D H&#236;nh Đồ Ăn)
+#### ▫️ Cấp 4: Đồ chơi - Giải tr&#237;
+##### ▪️ Cấp 5: Đồ chơi con xoay
+- Cấp 6 (SKU): PHY-AHOME-DS-004 (Con Quay Fidget Spinner Cơ Học Đổi Mặt)
+
+### 🔹 Cấp 3: Thiết Bị &#194;m Thanh
+#### ▫️ Cấp 4: Tai nghe nh&#233;t tai &amp; chụp tai
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): PHY-ATECH-DS-001 (Tai Nghe Chụp Tai Kh&#244;ng D&#226;y Bluetooth P9)
+
+### 🔹 Cấp 3: Điện thoại &amp; Phụ kiện
+#### ▫️ Cấp 4: Phụ kiện
+##### ▪️ Cấp 5: D&#226;y đeo điện thoại &amp; M&#243;c kh&#243;a
+- Cấp 6 (SKU): APHONE-DS-001 (D&#226;y Đeo Điện Thoại D&#249; Bện D&#224;i 120cm)
+
+### 🔹 Cấp 3: Kh&#225;c (Qu&#224; tặng chung)
+#### ▫️ Cấp 4: -
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): GIFT01-DS (Qu&#224; tặng k&#232;m c&#225;c sản phẩm RTW)
+- Cấp 6 (SKU): ACRB-DS-001 (T&#250;i đeo ch&#233;o mini thường ng&#224;y đơn giản)</pre>
+                </details>
+            </div>
+        </section>
+
         <!-- Main Workspace -->
-        <div class="flex flex-1 overflow-hidden relative">
+        <div class="workspace-shell flex flex-1 overflow-visible relative">
             
             <!-- Left Sidebar (Data Editor, Filters, List SKUs) -->
-            <aside id="sidebar" class="w-80 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col shrink-0 transition-all duration-300 z-10 shadow-lg">
+            <aside id="sidebar" class="panel-shell w-80 flex flex-col shrink-0 transition-all duration-300 z-10">
                 <!-- Navigation Tabs -->
                 <div class="flex border-b border-slate-200 dark:border-slate-800">
                     <button id="tab-explore-btn" class="flex-1 py-3 text-xs font-semibold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center justify-center space-x-2">
@@ -199,10 +824,10 @@
             </aside>
 
             <!-- Center Mindmap Panel -->
-            <main class="flex-1 flex flex-col overflow-hidden relative">
+            <main class="canvas-shell flex-1 flex flex-col overflow-hidden relative">
                 
                 <!-- Toolbar Floating inside Mindmap area -->
-                <div class="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-white/90 dark:bg-slate-950/90 backdrop-blur border border-slate-200 dark:border-slate-800 p-1.5 rounded-xl shadow-lg">
+                <div class="floating-toolbar absolute top-4 left-4 z-10 flex items-center space-x-2 p-1.5">
                     <button id="zoom-in-btn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-600 dark:text-slate-300" title="Phóng to">
                         <i data-lucide="zoom-in" class="w-4.5 h-4.5"></i>
                     </button>
@@ -234,7 +859,7 @@
             </main>
 
             <!-- Details Panel (Slide out right) -->
-            <aside id="inspector-panel" class="absolute top-0 right-0 h-full w-80 bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 transform translate-x-full transition-transform duration-300 ease-in-out z-20 shadow-2xl flex flex-col">
+            <aside id="inspector-panel" class="inspector-shell absolute top-0 right-0 h-full w-80 transform translate-x-full transition-transform duration-300 ease-in-out z-20 flex flex-col">
                 <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
                     <div class="flex items-center space-x-2">
                         <i data-lucide="info" class="w-5 h-5 text-blue-500"></i>
@@ -1583,3 +2208,4 @@
     </script>
 </body>
 </html>
+
