@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Tree Mindmap Explorer - Root Rotation</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- D3.js for Mindmap Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f5f7ff',
+                            100: '#ebf0ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .node {
+            cursor: pointer;
+        }
+        .node rect {
+            transition: all 0.2s ease;
+        }
+        .node:hover rect {
+            fill-opacity: 1;
+            stroke-width: 2.5px;
+        }
+        .link {
+            fill: none;
+            stroke-opacity: 0.4;
+            stroke-width: 1.5px;
+            transition: stroke 0.3s, stroke-width 0.3s, stroke-opacity 0.3s;
+        }
+        .link.highlighted {
+            stroke-opacity: 0.9;
+            stroke-width: 3px !important;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        /* Grid background */
+        .grid-bg-light {
+            background-color: #fafafa;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .grid-bg-dark {
+            background-color: #0f172a;
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="h-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200">
+    <div class="flex h-full flex-col">
+        <!-- Header -->
+        <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-6 z-10 shadow-sm">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-blue-600 text-white rounded-lg">
+                    <i data-lucide="git-fork" class="w-6 h-6 rotate-90"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight">Product Tree Explorer</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Bản đồ cấu trúc sản phẩm 6 cấp độ trực quan</p>
+                </div>
+            </div>
+
+            <!-- Stats Badge Quick View -->
+            <div class="hidden lg:flex items-center space-x-4">
+                <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    <span class="font-medium">Brands: <span id="stat-brands" class="font-bold text-indigo-600 dark:text-indigo-400">0</span></span>
+                </div>
+                <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs">
+                    <span class="w-2 h-2 rounded-full bg-teal-500"></span>
+                    <span class="font-medium">Tiers: <span id="stat-tiers" class="font-bold text-teal-600 dark:text-teal-400">0</span></span>
+                </div>
+                <div class="flex items-center space-x-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs">
+                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                    <span class="font-medium">Total SKUs: <span id="stat-skus" class="font-bold text-rose-600 dark:text-rose-400">0</span></span>
+                </div>
+            </div>
+
+            <!-- Controls (Dark Mode, Export, Custom Data) -->
+            <div class="flex items-center space-x-2">
+                <button id="toggle-sidebar-btn" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Bật/Tắt Sidebar">
+                    <i data-lucide="sidebar" class="w-5 h-5"></i>
+                </button>
+                <button id="theme-btn" class="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition" title="Đổi giao diện">
+                    <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+                    <i data-lucide="moon" class="w-5 h-5 block dark:hidden"></i>
+                </button>
+                <button id="export-png-btn" class="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-sm">
+                    <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                    <span>Tải PNG</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div class="flex flex-1 overflow-hidden relative">
+            
+            <!-- Left Sidebar (Data Editor, Filters, List SKUs) -->
+            <aside id="sidebar" class="w-80 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col shrink-0 transition-all duration-300 z-10 shadow-lg">
+                <!-- Navigation Tabs -->
+                <div class="flex border-b border-slate-200 dark:border-slate-800">
+                    <button id="tab-explore-btn" class="flex-1 py-3 text-xs font-semibold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center justify-center space-x-2">
+                        <i data-lucide="tree-pine" class="w-4 h-4"></i>
+                        <span>Khám Phá</span>
+                    </button>
+                    <button id="tab-data-btn" class="flex-1 py-3 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center justify-center space-x-2">
+                        <i data-lucide="code" class="w-4 h-4"></i>
+                        <span>Dữ Liệu MD</span>
+                    </button>
+                </div>
+
+                <!-- Tab 1: Explore & Filter -->
+                <div id="tab-explore" class="flex-1 overflow-y-auto p-4 space-y-5">
+                    <!-- Search Box -->
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Tìm kiếm sản phẩm / SKU</label>
+                        <div class="relative">
+                            <input id="search-input" type="text" placeholder="Ví dụ: 01TL01, Mèo, Hoodie..." class="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-600 transition" />
+                            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+                            <button id="clear-search-btn" class="hidden absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick filters -->
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Bộ lọc Brand (Cấp 1)</label>
+                        <select id="filter-brand" class="w-full p-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="ALL">Tất cả thương hiệu</option>
+                        </select>
+                    </div>
+
+                    <!-- List of Categories Accordion -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Duyệt nhanh danh mục</label>
+                            <span id="quick-list-count" class="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500">0</span>
+                        </div>
+                        <div id="quick-category-list" class="space-y-1.5 max-h-[250px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50">
+                            <!-- JS populated -->
+                        </div>
+                    </div>
+
+                    <!-- SKU Quick Finder List -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Danh sách SKU nhanh</label>
+                            <span id="sku-list-count" class="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500">0</span>
+                        </div>
+                        <div id="quick-sku-list" class="space-y-1 max-h-[250px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 rounded-lg p-2 bg-slate-50 dark:bg-slate-900/50">
+                            <!-- JS populated -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Raw Markdown Editor -->
+                <div id="tab-data" class="hidden flex-1 flex-col overflow-hidden p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sửa đổi nguồn Markdown (.md)</label>
+                        <button id="apply-md-btn" class="px-2.5 py-1 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded transition shadow-sm flex items-center space-x-1">
+                            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                            <span>Cập nhật Mindmap</span>
+                        </button>
+                    </div>
+                    <textarea id="markdown-editor" class="flex-1 w-full p-3 font-mono text-xs bg-slate-900 text-slate-200 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none overflow-y-auto leading-relaxed"></textarea>
+                </div>
+            </aside>
+
+            <!-- Center Mindmap Panel -->
+            <main class="flex-1 flex flex-col overflow-hidden relative">
+                
+                <!-- Toolbar Floating inside Mindmap area -->
+                <div class="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-white/90 dark:bg-slate-950/90 backdrop-blur border border-slate-200 dark:border-slate-800 p-1.5 rounded-xl shadow-lg">
+                    <button id="zoom-in-btn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-600 dark:text-slate-300" title="Phóng to">
+                        <i data-lucide="zoom-in" class="w-4.5 h-4.5"></i>
+                    </button>
+                    <button id="zoom-out-btn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-600 dark:text-slate-300" title="Thu nhỏ">
+                        <i data-lucide="zoom-out" class="w-4.5 h-4.5"></i>
+                    </button>
+                    <button id="zoom-reset-btn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-600 dark:text-slate-300" title="Căn giữa bản đồ">
+                        <i data-lucide="maximize" class="w-4.5 h-4.5"></i>
+                    </button>
+                    <div class="w-px h-5 bg-slate-200 dark:bg-slate-800"></div>
+                    <button id="expand-all-btn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-600 dark:text-slate-300" title="Mở rộng tất cả">
+                        <i data-lucide="folder-open" class="w-4.5 h-4.5"></i>
+                    </button>
+                    <button id="collapse-all-btn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition text-slate-600 dark:text-slate-300" title="Thu gọn tất cả">
+                        <i data-lucide="folder-closed" class="w-4.5 h-4.5"></i>
+                    </button>
+                </div>
+
+                <!-- Main SVG Mindmap Canvas -->
+                <div id="mindmap-container" class="flex-1 w-full h-full cursor-grab active:cursor-grabbing grid-bg-light dark:grid-bg-dark transition-all duration-300">
+                    <svg id="mindmap-svg" class="w-full h-full"></svg>
+                </div>
+
+                <!-- Custom Toast Alert (Instead of standard browser alert) -->
+                <div id="toast" class="fixed bottom-6 right-6 transform translate-y-10 opacity-0 transition-all duration-300 ease-out z-50 flex items-center space-x-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 px-5 rounded-xl shadow-2xl pointer-events-none">
+                    <i id="toast-icon" data-lucide="info" class="w-5 h-5 text-blue-400"></i>
+                    <span id="toast-message" class="text-sm font-medium"></span>
+                </div>
+            </main>
+
+            <!-- Details Panel (Slide out right) -->
+            <aside id="inspector-panel" class="absolute top-0 right-0 h-full w-80 bg-white dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 transform translate-x-full transition-transform duration-300 ease-in-out z-20 shadow-2xl flex flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="info" class="w-5 h-5 text-blue-500"></i>
+                        <h3 class="font-bold text-sm">Chi Tiết Cấu Trúc</h3>
+                    </div>
+                    <button id="close-inspector-btn" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-5 space-y-6">
+                    <!-- Dynamic Path / Breadcrumb -->
+                    <div class="space-y-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Đường dẫn Danh Mục</span>
+                        <div id="inspector-path" class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            <!-- JS Dynamic -->
+                        </div>
+                    </div>
+
+                    <!-- Target Node Info Block -->
+                    <div class="bg-blue-50 dark:bg-blue-950/40 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                        <span id="inspector-level" class="inline-block px-2 py-0.5 text-[10px] font-bold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full mb-2">CẤP 6 (SKU)</span>
+                        <h4 id="inspector-title" class="text-lg font-extrabold text-blue-900 dark:text-blue-200 leading-tight">Mã SKU</h4>
+                        <p id="inspector-desc" class="text-sm mt-1.5 text-slate-600 dark:text-slate-300 leading-relaxed">Mô tả sản phẩm</p>
+                    </div>
+
+                    <!-- Additional Details Metadata -->
+                    <div class="space-y-3">
+                        <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Thuộc tính Node</span>
+                        <div class="grid grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <span class="block text-slate-400 font-medium">Phân khúc (Tier)</span>
+                                <span id="inspector-tier" class="font-bold text-slate-700 dark:text-slate-300">MAIN</span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <span class="block text-slate-400 font-medium">Thương hiệu (Brand)</span>
+                                <span id="inspector-brand" class="font-bold text-slate-700 dark:text-slate-300">ROOT ROTATION</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clipboard Copy -->
+                    <div id="inspector-sku-box" class="space-y-2">
+                        <span class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sao chép Mã sản phẩm</span>
+                        <div class="flex space-x-2">
+                            <input id="inspector-sku-val" type="text" readonly class="flex-1 px-3 py-1.5 text-xs font-mono bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none" />
+                            <button id="copy-sku-btn" class="px-3 py-1.5 text-xs font-bold bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-800 rounded-lg hover:bg-slate-700 dark:hover:bg-slate-100 transition flex items-center space-x-1">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Embedded Initial Data -->
+    <script id="initial-data" type="text/markdown"># 🌳 CẤP 1: BRAND - ROOT ROTATION
+
+## 🔸 CẤP 2: TIER - MAIN (CHỦ ĐẠO)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo hai dây và ba lỗ
+- Cấp 6 (SKU): 01TL01 (Áo Croptop Hai Dây Butterfly Origami - Denim)
+- Cấp 6 (SKU): 01TL04 (Áo Croptop Tay Dài Butterfly Origami - Thun Spandex)
+##### ▪️ Cấp 5: Áo ống / Áo yếm / Corset
+- Cấp 6 (SKU): 01TL05 (Áo Quây Crochet Jellyfish)
+- Cấp 6 (SKU): 01TN03 (Áo Yếm Jean Hai Mặt - Thun Spandex & Denim)
+- Cấp 6 (SKU): 01TN04 (Áo Yếm Croptop The Grecian - Kaki / Spandex)
+- Cấp 6 (SKU): 01TN05 (Áo Yếm Hở Lưng Butterfly - Denim)
+- Cấp 6 (SKU): 01TN06 (Áo Corset Dây Thắt Origami - Denim / Kaki)
+##### ▪️ Cấp 5: Áo sơ mi
+- Cấp 6 (SKU): 01TL03 (Áo Sơ Mi Nữ Bamboo Origami - Cotton tre)
+- Cấp 6 (SKU): 01TN08 (Áo Sơ Mi Utility Pocket - Denim / Kaki)
+##### ▪️ Cấp 5: Áo thun
+- Cấp 6 (SKU): 01TL07 (Áo Bra Không Dây The Shell)
+- Cấp 6 (SKU): 01TL08 (Art Tee Hồn Việt Âu Lạc / Áo Dài)
+
+#### ▫️ Cấp 4: Váy
+##### ▪️ Cấp 5: Chân váy
+- Cấp 6 (SKU): 01BL01 (Chân Váy Hoa Origami - Denim / Spandex)
+- Cấp 6 (SKU): 01BL02 (Chân Váy Mini 3D Túi Hộp - Denim)
+- Cấp 6 (SKU): 01BL03 (Chân Váy Butterfly Origami - Denim)
+- Cấp 6 (SKU): 01BL04 (Chân Váy The Wave - Denim)
+- Cấp 6 (SKU): 01BN04 (Chân Váy Mini The Pocket - Denim / Kaki)
+- Cấp 6 (SKU): 01BN05 (Chân Váy Ôm The Patchwork - Denim / Kaki)
+- Cấp 6 (SKU): 01BN10 (Chân Váy Dài Túi Hộp Zipper - Denim / Kaki)
+- Cấp 6 (SKU): 01BN11 (Chân Váy Dài The Pocket - Denim / Kaki)
+
+#### ▫️ Cấp 4: Đầm
+##### ▪️ Cấp 5: Đầm
+- Cấp 6 (SKU): 01DL01 (Váy Denim Butterfly Origami)
+- Cấp 6 (SKU): 01DL02 (Đầm Yếm Butterfly Origami - Denim)
+- Cấp 6 (SKU): 01DN01 (Đầm Ôm Body Dài The Pocket - Denim / Kaki)
+
+#### ▫️ Cấp 4: Quần
+##### ▪️ Cấp 5: Quần đùi (Shorts)
+- Cấp 6 (SKU): 01BL05 (Quần Short Denim Ocean)
+- Cấp 6 (SKU): 01BN06 (Quần Short The Pocket - Denim / Kaki)
+- Cấp 6 (SKU): 01BN07 (Quần Lửng Ống Rộng The Pocket - Denim / Kaki)
+
+#### ▫️ Cấp 4: Áo khoác, Áo choàng & Vest
+##### ▪️ Cấp 5: Áo choàng
+- Cấp 6 (SKU): 01OL02 (Măng Tô Nữ Dáng Dài Hai Lớp - Kaki & Lụa)
+##### ▪️ Cấp 5: Áo blazer
+- Cấp 6 (SKU): 01OL03 (Blazer Họa Tiết Ô Vuông - Kaki & Denim)
+##### ▪️ Cấp 5: Áo khoác ngoài
+- Cấp 6 (SKU): 01OL04 (Bomber The Ocean)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo thun
+- Cấp 6 (SKU): BTS-L3 (Áo Thun Regular Raanana - Đen/Trắng/Đỏ)
+- Cấp 6 (SKU): BTS-N9-FOX (Áo Thun Regular Nine Dots - Fox)
+- Cấp 6 (SKU): BTS-N9-GECKO (Áo Thun Regular Nine Dots - Gecko)
+
+#### ▫️ Cấp 4: Quần
+##### ▪️ Cấp 5: Quần jean
+- Cấp 6 (SKU): 01BN02 (Quần Jean Ống Suông Túi Hộp - Denim)
+- Cấp 6 (SKU): 01BN03-DE (Quần Jean Zipper Gạch Bông Gió - Denim)
+- Cấp 6 (SKU): 01BN09-DE (Quần Ống Rộng Patchwork Sọc - Denim)
+##### ▪️ Cấp 5: Quần túi hộp / Quần dài
+- Cấp 6 (SKU): 01BN03-KA (Quần Jean Zipper Gạch Bông Gió - Kaki)
+- Cấp 6 (SKU): 01BN08 (Quần Patchwork The Strap - Kaki)
+- Cấp 6 (SKU): 01BN09-KA (Quần Ống Rộng Patchwork Sọc - Kaki)
+##### ▪️ Cấp 5: Quần jogger
+- Cấp 6 (SKU): 01BN12 (Quần Jogger The Sweat - Nỉ / Kaki)
+
+#### ▫️ Cấp 4: Áo khoác
+##### ▪️ Cấp 5: Áo khoác
+- Cấp 6 (SKU): 01ON01 (Gile Hai Mặt Gạch Bông Gió - Kaki Denim / Poly Quilted)
+- Cấp 6 (SKU): 01ON02 (Bomber Nam Hai Mặt Có Mũ - Denim / Da)
+- Cấp 6 (SKU): 01ON04 (Blazer Dây Rút The Straps - Kaki)
+- Cấp 6 (SKU): 01ON05 (Áo Khoác Denim Type II)
+- Cấp 6 (SKU): 01ON06 (Gile Có Mũ Utility Strap - Denim / Kaki)
+
+### 🔹 Cấp 3: Túi Ví Nữ
+#### ▫️ Cấp 4: Túi tote
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): 01AN04 (Túi Tote The Stripes - Denim / Kaki)
+#### ▫️ Cấp 4: Túi quai xách / Đeo chéo
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01BL01 (Túi Xách Nữ Denim Evita)
+- Cấp 6 (SKU): A01BL05 (Túi Cầm Tay Đan Móc Aria)
+- Cấp 6 (SKU): A01BL06 (Túi Đeo Chéo Mini Doris)
+
+---
+
+## 🔸 CẤP 2: TIER - LUXURY (CAO CẤP)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: Áo khoác, Áo choàng & Vest
+##### ▪️ Cấp 5: Áo khoác
+- Cấp 6 (SKU): 01OL01 (Bomber Unisex Cocoon - Vải ren vụn)
+- Cấp 6 (SKU): 01OL05 (Blazer The Ocean)
+#### ▫️ Cấp 4: Đầm
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): 01DL03 (Đầm Baby Doll The Wave - Denim)
+- Cấp 6 (SKU): 01DL04 (Đầm Polo Butterfly Kèm Túi Xách)
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo ống / Hoodie
+- Cấp 6 (SKU): 01TL06 (Áo Croptop Hoodie Crochet The Octopus)
+
+### 🔹 Cấp 3: Túi Ví Nữ
+#### ▫️ Cấp 4: Túi xách các loại
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): 01AN01 (Túi Tote Envelope - Denim / Kaki)
+- Cấp 6 (SKU): 01AN02 (Túi Đeo Vai Denim Dragon Wing)
+- Cấp 6 (SKU): 01AN03 (Túi Xách Nữ Denim The Fish)
+- Cấp 6 (SKU): A01BL04 (Túi xách denim Maxra)
+- Cấp 6 (SKU): A01BL07 (Túi Xách Nữ Jada)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Mũ
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01HL01 (Mũ Beret Cocoon)
+
+### 🔹 Cấp 3: Nhà cửa & Đời sống
+#### ▫️ Cấp 4: Trang trí nhà cửa
+##### ▪️ Cấp 5: Khung ảnh & vật trang trí tường
+- Cấp 6 (SKU): A01CW01-01 (Tranh Rồng Việt Nghệ Thuật)
+- Cấp 6 (SKU): A01CW01-02 (Tranh Lân Việt Nghệ Thuật)
+- Cấp 6 (SKU): A01CW01-03 (Tranh Quy Việt Nghệ Thuật)
+- Cấp 6 (SKU): A01CW01-04 (Tranh Phụng Việt Nghệ Thuật)
+
+### 🔹 Cấp 3: Sở thích & Sưu tầm
+#### ▫️ Cấp 4: Đồ chơi - Giải trí
+##### ▪️ Cấp 5: Thú bông
+- Cấp 6 (SKU): A01SL01 (THÚ BÔNG ĐEO VAI TIFFANY)
+- Cấp 6 (SKU): A01SL02 (THÚ BÔNG ĐEO VAI ĐẠI BÀNG)
+- Cấp 6 (SKU): A01SL03 (THÚ BÔNG ĐEO VAI CON MÈO)
+
+---
+
+## 🔸 CẤP 2: TIER - HOOK / GIFT (MỒI NHỬ / QUÀ TẶNG)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo hai dây và ba lỗ
+- Cấp 6 (SKU): 01TL02 (Áo Tanktop Họa Tiết Origami - Butterfly / The Dream / Flower / Monalisa)
+##### ▪️ Cấp 5: Áo thun
+- Cấp 6 (SKU): 01TN01 (Áo thun Spandex Dinosaur Spine)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo thun
+- Cấp 6 (SKU): OTS-L3 (Áo Thun Oversize Raanana)
+- Cấp 6 (SKU): OTS-N9-FOX (Áo Thun Oversize Nine Dots - Fox)
+- Cấp 6 (SKU): OTS-N9-GECKO (Áo Thun Oversize Nine Dots - Gecko)
+
+### 🔹 Cấp 3: Túi Ví Nam
+#### ▫️ Cấp 4: Bóp/ Ví
+##### ▪️ Cấp 5: Ví đựng tiền xu
+- Cấp 6 (SKU): 01AN06 (Túi Quần Jean)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Mũ
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01HL02 (Mũ bucket hai mặt Cocoon - Denim / Lụa / Spandex)
+- Cấp 6 (SKU): HDN0122 (Mũ Hoodie Thun Tháo Rời)
+#### ▫️ Cấp 4: Khăn choàng
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): A01SC01-SI (Tu Linh Women Silk Scarf)
+- Cấp 6 (SKU): A01SC02-CT (Vietnam Fables Unisex Cotton Scarf)
+- Cấp 6 (SKU): A01SC03-SI (Tu Linh Women Twilly Silk Scarf)
+- Cấp 6 (SKU): A01SC04-CT (Vietnam Fables Cotton Scarf 5x85)
+
+### 🔹 Cấp 3: Nhà cửa & Đời sống
+#### ▫️ Cấp 4: Trang trí nhà cửa
+##### ▪️ Cấp 5: Khung ảnh & vật trang trí tường
+- Cấp 6 (SKU): A01FW01 (3D Fabric Wall Hanging - Mona Lisa / Girl with pearl / Lady with an ermine / The Scream)
+- Cấp 6 (SKU): A01FW02 (Tote shaped Wall Hanging Root Rotation)
+
+### 🔹 Cấp 3: Túi Ví Nữ
+#### ▫️ Cấp 4: Túi tote
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): ATTB01 (Tote vải handmade Game / Manga / Meme)
+
+### 🔹 Cấp 3: Sở Thích & Sưu tầm
+#### ▫️ Cấp 4: Quà Lưu Niệm
+##### ▪️ Cấp 5: Nam Châm
+- Cấp 6 (SKU): A01MN01 (Wooden Magnet Ruto Kaiten Emoji)
+
+
+======================================================
+
+
+# 🌳 CẤP 1: BRAND - ROOT ROTATION PHYGITAL (RRP)
+
+## 🔸 CẤP 2: TIER - MAIN (CHỦ ĐẠO)
+
+### 🔹 Cấp 3: Thời Trang Nữ
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo thun (Baby Tee)
+- Cấp 6 (SKU): PHY-BBT-057 (Áo Baby Tee - Mèo Làm Gì?)
+- Cấp 6 (SKU): PHY-BBT-058 (Áo Baby Tee - Mèo Ăn Gì?)
+- Cấp 6 (SKU): PHY-BBT-059 (Áo Baby Tee - Mèo Đi Đâu?)
+- Cấp 6 (SKU): PHY-BBT-081 (Áo Baby Tee Viet Youngsters - Bé Ngoan)
+- Cấp 6 (SKU): PHY-BBT-082 (Áo Baby Tee Viet Youngsters - Doubt)
+- Cấp 6 (SKU): PHY-BBT-083 (Áo Baby Tee Viet Youngsters - Người Giàu)
+- Cấp 6 (SKU): PHY-BBT-084 (Áo Baby Tee Viet Youngsters - Overthinking)
+
+### 🔹 Cấp 3: Thời Trang Nam / Unisex
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo thun (Oversize)
+- Cấp 6 (SKU): PHY-OVE-037 (Áo Thun AR Uchiha Itachi Fanart)
+- Cấp 6 (SKU): PHY-OVE-044 (Áo Thun AR Kyuubi Naruto Fanart)
+- Cấp 6 (SKU): PHY-OVE-049 (Áo Thun AR Sasuke Fanart)
+- Cấp 6 (SKU): PHY-OVE-050 (Áo Thun AR Hatake Kakashi Fanart)
+- Cấp 6 (SKU): PHY-OVE-051 (Áo Thun AR Pikachu Fanart)
+- Cấp 6 (SKU): PHY-OVE-052 (Áo Thun AR Bulbasaur Fanart)
+- Cấp 6 (SKU): PHY-OVE-053 (Áo Thun AR Snorlax Fanart)
+- Cấp 6 (SKU): PHY-OVE-055 (Áo Thun AR Nakroth Fanart)
+- Cấp 6 (SKU): PHY-OVE-056 (Áo Thun AR Yae Miko Fanart)
+- Cấp 6 (SKU): PHY-OVE-060 (Áo Thun AR Mèo Làm Gì?)
+- Cấp 6 (SKU): PHY-OVE-061 (Áo Thun AR Mèo Ăn Gì?)
+- Cấp 6 (SKU): PHY-OVE-062 (Áo Thun AR Mèo Đi Đâu?)
+- Cấp 6 (SKU): PHY-OVE-063 (Áo Thun AR Florentino Fanart)
+- Cấp 6 (SKU): PHY-OVE-064 (Áo Thun AR AOI Fanart)
+- Cấp 6 (SKU): PHY-OVE-070 (Áo Thun AR Popeyes Scrap Iron)
+- Cấp 6 (SKU): PHY-OVE-071 (Áo Thun AR Có Làm Thì Mới Có Ăn)
+- Cấp 6 (SKU): PHY-OVE-072 (Áo Thun AR Flex)
+- Cấp 6 (SKU): PHY-OVE-073 (Áo Thun AR Khó chịu vô cùng)
+- Cấp 6 (SKU): PHY-OVE-074 (Áo Thun AR Delulu)
+- Cấp 6 (SKU): PHY-OVE-077 (Áo Thun AR Bé Ngoan)
+- Cấp 6 (SKU): PHY-OVE-079 (Áo Thun AR Người Giàu)
+- Cấp 6 (SKU): PHY-OVE-080 (Áo Thun AR Overthinking)
+- Cấp 6 (SKU): PHY-OVE-098 (Áo Thun AR Raiden Shogun Fanart)
+- Cấp 6 (SKU): PHY-OVE-099 (Áo Thun AR Raiden x Yae Fanart)
+
+#### ▫️ Cấp 4: Hoodie & Áo nỉ
+##### ▪️ Cấp 5: Áo hoodie tay ngắn
+- Cấp 6 (SKU): PHY-OVE-044-046 (Áo Hoodie Kyuubi Naruto)
+- Cấp 6 (SKU): PHY-OVE-050-046 (Áo Hoodie Kakashi)
+- Cấp 6 (SKU): PHY-OVE-051-054 (Áo Hoodie Pikachu)
+- Cấp 6 (SKU): PHY-OVE-064-065 (Áo Hoodie AOI)
+- Cấp 6 (SKU): PHY-OVE-075 (Áo Hoodie 30 Chưa Phải Là Tết)
+- Cấp 6 (SKU): PHY-OVE-076 (Áo Hoodie Ai Rồi cũng khác)
+- Cấp 6 (SKU): PHY-OVE-078 (Áo Hoodie Doubt)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Phụ kiện thêm
+##### ▪️ Cấp 5: Mặt dây chuyền và Charm
+- Cấp 6 (SKU): PHY-APD-004 (Mặt Dây Chuyền Mickey / VN Fables 3D Plastic Case)
+
+---
+
+## 🔸 CẤP 2: TIER - LUXURY (CAO CẤP)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo thun
+- Cấp 6 (SKU): PHY-OVE-047 (Áo Thun Thực Tế Ảo Oversize Zoro The Green Dragon Exclusive)
+
+---
+
+## 🔸 CẤP 2: TIER - HOOK / GIFT (MỒI NHỬ / QUÀ TẶNG)
+
+### 🔹 Cấp 3: Thời Trang Nam
+#### ▫️ Cấp 4: Áo
+##### ▪️ Cấp 5: Áo hoodie
+- Cấp 6 (SKU): PHY-OVE-038 (Áo Hoodie Tay Ngắn Naruto Chibi Fanart)
+- Cấp 6 (SKU): PHY-OVE-039 (Áo Hoodie Tay Ngắn My Neighbor Totoro)
+- Cấp 6 (SKU): PHY-OVE-040 (Áo Hoodie Tay Ngắn Spirited Away)
+##### ▪️ Cấp 5: Áo thun
+- Cấp 6 (SKU): PHY-OVE-041 (Áo Thun Oversize Zoro The Green Dragon)
+- Cấp 6 (SKU): PHY-OVE-114 (Áo thun Root Rotation Logo oversize)
+- Cấp 6 (SKU): PHY-OVE-115 (Áo thun Root Rotation Phygital Logo oversize)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Phụ kiện thêm
+##### ▪️ Cấp 5: Mặt dây chuyền và Charm
+- Cấp 6 (SKU): PHY-ACB-001 (3D Kaiten / Ruto cardboard metal pendant)
+- Cấp 6 (SKU): PHY-APD-001 (Wooden pendant)
+- Cấp 6 (SKU): PHY-APD-002 (Metal pendant)
+- Cấp 6 (SKU): PHY-APD-003 (Mặt Dây Chuyền Vải Thủ Công)
+##### ▪️ Cấp 5: Trâm & Ghim cài áo
+- Cấp 6 (SKU): PHY-APIN-001 (Enamel Pin 24 Ruto Kaiten Emoji)
+##### ▪️ Cấp 5: Miếng vá áo / Huy hiệu
+- Cấp 6 (SKU): PHY-APH-001 (Huy Hiệu Dán Trang Trí Quần Áo)
+##### ▪️ Cấp 5: Khác
+- Cấp 6 (SKU): PHY-AFP-001 (Túi Áo Thun Gắn Rời Bằng Khaki)
+
+#### ▫️ Cấp 4: Mũ
+##### ▪️ Cấp 5: Phụ kiện thay thế
+- Cấp 6 (SKU): PHY-HOO-046 (Nón Hoodie Phản Quang Naruto)
+- Cấp 6 (SKU): PHY-HOO-054 (Nón Hoodie Phản Quang Pokemon)
+- Cấp 6 (SKU): PHY-HOO-065 (Nón Hoodie Phản Quang AOV)
+- Cấp 6 (SKU): PHY-HOO-113 (Nón Hoodie Velcro)
+
+### 🔹 Cấp 3: Túi Ví Nữ
+#### ▫️ Cấp 4: Phụ kiện túi
+##### ▪️ Cấp 5: Charm và phụ kiện gắn túi
+- Cấp 6 (SKU): PHY-ACHARM-001 (Gấu bông Mini Ruto)
+- Cấp 6 (SKU): PHY-ACHARM-002 (Kaiten Plushed Doll)
+
+### 🔹 Cấp 3: Nhà cửa & Đời sống
+#### ▫️ Cấp 4: Trang trí nhà cửa
+##### ▪️ Cấp 5: Khác
+- Cấp 6 (SKU): ACC_CAT_001 (Mèo Nhựa Màu Random - Mô Hình Mèo Chui Hộp)
+
+
+======================================================
+
+
+# 🌳 CẤP 1: BRAND - WATSNEW
+
+## 🔸 CẤP 2: TIER - HOOK / GIFT (MỒI NHỬ / QUÀ TẶNG)
+
+### 🔹 Cấp 3: Phụ Kiện Thời Trang
+#### ▫️ Cấp 4: Vòng tay & Lắc tay
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AJEW-DS-002 (Vòng Tay Đập Thú Bông Hình Chuột Lang)
+- Cấp 6 (SKU): PHY-AJEW-DS-003 (Vòng Tay Da Bò Dệt Naruto)
+- Cấp 6 (SKU): PHY-AJEW-DS-006 (Vòng Tay Da Dệt Mỏ Neo Cổ Điển)
+- Cấp 6 (SKU): PHY-AJEW-DS-007 (Vòng Tay Bạc Thái Bánh Lái)
+- Cấp 6 (SKU): PHY-AJEW-DS-008 (Vòng Tay Silicon Chủ Đề Videogame)
+- Cấp 6 (SKU): PHY-AJEW-DS-010 (Vòng Tay Silicon Minecraft)
+- Cấp 6 (SKU): PHY-AJEW-DS-012 (Vòng Tay Cặp Đôi Ma Nam Châm)
+- Cấp 6 (SKU): PHY-AJEW-DS-013 (Vòng Tay Cặp Rồng Âm Dương)
+- Cấp 6 (SKU): PHY-AJEW-DS-014 (Vòng Tay Đôi Gốm Sứ Charm Mèo)
+- Cấp 6 (SKU): PHY-AJEW-DS-015 (Vòng Tay Gốm Sứ Gấu và Bánh Quy)
+- Cấp 6 (SKU): PHY-AJEW-DS-016 (Vòng Tay Hạt Cườm Ma Nhỏ)
+- Cấp 6 (SKU): PHY-AJEW-DS-017 (Vòng Tay Charm Sanrio)
+
+#### ▫️ Cấp 4: Dây chuyền
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AJEW-DS-001 (Dây Đeo Cổ Dạng Dù Bện Không Kèm Mặt)
+- Cấp 6 (SKU): PHY-AJEW-DS-004 (Vòng Cổ Mèo Đen Jiji)
+- Cấp 6 (SKU): PHY-AJEW-DS-005 (Dây Chuyền Robot Khớp Nối)
+- Cấp 6 (SKU): PHY-AJEW-DS-011 (Dây Chuyền Thép Khủng Long)
+
+#### ▫️ Cấp 4: Phụ kiện thêm
+##### ▪️ Cấp 5: Trâm & Ghim cài áo
+- Cấp 6 (SKU): PHY-APIN-DS-010 (Ghim Cài Áo Nhồi Bông Vuốt Mèo)
+- Cấp 6 (SKU): PHY-APIN-DS-011 (Ghim Cài Áo Nhồi Bông Cinnamoroll)
+- Cấp 6 (SKU): PHY-APIN-DS-012 (Ghim Cài DIY Sanrio Trang Trí)
+- Cấp 6 (SKU): PHY-APIN-DS-013 (Huy Hiệu Cài Áo Pokemon)
+- Cấp 6 (SKU): APIN-DS-001 đến APIN-DS-005 (Pin Collection "Girls Inspiration" V1-V5)
+- Cấp 6 (SKU): APIN-DS-006 đến APIN-DS-010 (Pin Collection "Boys in the House" V1-V5)
+
+##### ▪️ Cấp 5: Miếng vá áo / Huy hiệu Velcro (Patches)
+- Cấp 6 (SKU): A2DP-DS-001 đến A2DP-DS-003 (2D Velcro Patch "Emboidery Meme Pet")
+- Cấp 6 (SKU): A2DP-DS-004 đến A2DP-DS-006 (2D Velcro Patch "Emboidery Fierce Animal")
+- Cấp 6 (SKU): A2DP-DS-007 đến A2DP-DS-009 (2D Velcro Patch "Reflective Warrior")
+- Cấp 6 (SKU): A2DP-DS-010 đến A2DP-DS-014 (2D Velcro Patches "Cute Psycho")
+- Cấp 6 (SKU): A2DP-DS-015 đến A2DP-DS-019 (2D Velcro Patches "Rock It!")
+- Cấp 6 (SKU): A2DP-DS-020 đến A2DP-DS-024 (2D Velcro Patches "Red Skull")
+- Cấp 6 (SKU): PHY-A3DP-DS-007 đến PHY-A3DP-DS-015 (3D Velcro Patches - Meme Cat V1-V9)
+- Cấp 6 (SKU): PHY-A3DP-DS-016 đến PHY-A3DP-DS-019 (3D Velcro Patches - Nhiều Meme)
+- Cấp 6 (SKU): PHY-A3DP-DS-020 đến PHY-A3DP-DS-029 (3D Velcro Patches - Game Lover)
+- Cấp 6 (SKU): PHY-A3DP-DS-030 đến PHY-A3DP-DS-034 (3D Velcro Patches - Game Mario)
+- Cấp 6 (SKU): PHY-A3DP-DS-035 đến PHY-A3DP-DS-039 (3D Velcro Patches - Game Quote)
+- Cấp 6 (SKU): PHY-A3DP-DS-040 đến PHY-A3DP-DS-049 (3D Velcro Patches - Manga Trending)
+- Cấp 6 (SKU): PHY-A3DP-DS-050 đến PHY-A3DP-DS-059 (3D Velcro Patches - Manga Popular)
+
+##### ▪️ Cấp 5: Mặt dây chuyền và Charm
+- Cấp 6 (SKU): DS-A03CH01 (Ruban de Perle Charm Set)
+- Cấp 6 (SKU): DS-A03CH02 (Choco Bijou Charm Set)
+- Cấp 6 (SKU): DS-A03CH03 (Outland Gear Charm Set)
+- Cấp 6 (SKU): DS-A03CH04 (Lock & Load Charm Set)
+- Cấp 6 (SKU): DS-A03CH05 (Furry Amis Charm Set)
+- Cấp 6 (SKU): DS-A03CH06 (Jeu de Chance Charm Set)
+- Cấp 6 (SKU): ACHARM-DS-001 đến ACHARM-DS-003 (Charms Collection "Knot Charm Heart")
+- Cấp 6 (SKU): ACHARM-DS-004 đến ACHARM-DS-006 (Charms Collection "Knot Charm Flower")
+- Cấp 6 (SKU): ACHARM-DS-007 đến ACHARM-DS-009 (3D Velcro Patches Collection "Silly Cabybara")
+- Cấp 6 (SKU): ACHARM-DS-010 đến ACHARM-DS-012 (Collection "Plush Rabbit & Bear")
+
+##### ▪️ Cấp 5: Khác
+- Cấp 6 (SKU): AHAIR-DS-001 đến AHAIR-DS-002 (Funny Hair acessories collection "Silly Hair")
+
+### 🔹 Cấp 3: Túi Ví Nữ
+#### ▫️ Cấp 4: Túi tote
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): ATTB-DS-001 (Túi Vải Tote Canvas Dáng Đứng)
+- Cấp 6 (SKU): ATTB-DS-002 (Bộ Dụng Cụ Tô Màu DIY Túi Vải Canvas / Vẽ Graffiti)
+#### ▫️ Cấp 4: Phụ kiện túi
+##### ▪️ Cấp 5: Charm và phụ kiện gắn túi
+- Cấp 6 (SKU): PHY-ACHARM-DS-007 (Móc Khóa Nhồi Bông Hình Mèo)
+- Cấp 6 (SKU): PHY-ACHARM-DS-008 (Móc Khóa Hình Chú Chó Trái Tim)
+- Cấp 6 (SKU): PHY-ACHARM-DS-009 (Móc Khóa Acrylic Hình Chú Chó)
+- Cấp 6 (SKU): PHY-ACHARM-DS-010 (Móc Khóa Cặp Đôi Nam Châm)
+
+### 🔹 Cấp 3: Túi Ví Nam
+#### ▫️ Cấp 4: Bóp/ Ví
+##### ▪️ Cấp 5: Ví đựng tiền xu
+- Cấp 6 (SKU): AMNB-DS-002 (Túi đựng tiền xu dây kéo màu tương phản)
+#### ▫️ Cấp 4: Khác
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AMNB-DS-001 (Túi bảo vệ dụng cụ nhỏ EDC)
+
+### 🔹 Cấp 3: Nhà cửa & Đời sống
+#### ▫️ Cấp 4: Bộ đồ bàn ăn
+##### ▪️ Cấp 5: Bình nước & phụ kiện
+- Cấp 6 (SKU): ABOTT-DS-001 (Bình Nước Giữ Nhiệt Inox 304 500ml)
+#### ▫️ Cấp 4: Đèn
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): AHOME-DS-001 (Đèn Ngủ Silicon Hình Thỏ Cảm Ứng)
+#### ▫️ Cấp 4: Trang trí nhà cửa
+##### ▪️ Cấp 5: Khác
+- Cấp 6 (SKU): AHOME-DS-003 (Lát Gỗ Thông Tự Nhiên Trang Trí Thủ Công)
+
+### 🔹 Cấp 3: Sở Thích & Sưu tầm
+#### ▫️ Cấp 4: Quà Lưu Niệm
+##### ▪️ Cấp 5: Nam Châm
+- Cấp 6 (SKU): AHOME-DS-002 (Nam Châm Tủ Lạnh 3D Hình Đồ Ăn)
+#### ▫️ Cấp 4: Đồ chơi - Giải trí
+##### ▪️ Cấp 5: Đồ chơi con xoay
+- Cấp 6 (SKU): PHY-AHOME-DS-004 (Con Quay Fidget Spinner Cơ Học Đổi Mặt)
+
+### 🔹 Cấp 3: Thiết Bị Âm Thanh
+#### ▫️ Cấp 4: Tai nghe nhét tai & chụp tai
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): PHY-ATECH-DS-001 (Tai Nghe Chụp Tai Không Dây Bluetooth P9)
+
+### 🔹 Cấp 3: Điện thoại & Phụ kiện
+#### ▫️ Cấp 4: Phụ kiện
+##### ▪️ Cấp 5: Dây đeo điện thoại & Móc khóa
+- Cấp 6 (SKU): APHONE-DS-001 (Dây Đeo Điện Thoại Dù Bện Dài 120cm)
+
+### 🔹 Cấp 3: Khác (Quà tặng chung)
+#### ▫️ Cấp 4: -
+##### ▪️ Cấp 5: -
+- Cấp 6 (SKU): GIFT01-DS (Quà tặng kèm các sản phẩm RTW)
+- Cấp 6 (SKU): ACRB-DS-001 (Túi đeo chéo mini thường ngày đơn giản)
+</script>
+
+    <!-- Custom Code logic -->
+    <script>
+        // Global variables for D3 Mindmap state
+        let rootNodeData = null;
+        let d3Root = null;
+        let svg, gElement, zoomBehavior;
+        let activeBrandFilter = "ALL";
+        let activeSearchQuery = "";
+        const nodeWidth = 180;
+        const nodeHeight = 40;
+        const levelSpacing = 240;
+
+        // Color theme mapping by hierarchy level
+        const levelColors = {
+            0: { bg: '#1e293b', border: '#475569', text: '#f8fafc' }, // Root
+            1: { bg: '#4f46e5', border: '#6366f1', text: '#ffffff' }, // C1: Brand
+            2: { bg: '#0d9488', border: '#14b8a6', text: '#ffffff' }, // C2: Tier
+            3: { bg: '#0891b2', border: '#06b6d4', text: '#ffffff' }, // C3
+            4: { bg: '#ca8a04', border: '#eab308', text: '#ffffff' }, // C4
+            5: { bg: '#7c3aed', border: '#a78bfa', text: '#ffffff' }, // C5
+            6: { bg: '#e11d48', border: '#fb7185', text: '#ffffff' }  // C6 (SKU)
+        };
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            // Initialize Lucide Icons
+            lucide.createIcons();
+
+            // Set Initial Theme
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+
+            // Load initial Markdown from inline script tag
+            const initialMarkdown = document.getElementById('initial-data').textContent;
+            document.getElementById('markdown-editor').value = initialMarkdown;
+
+            // Setup Tab Switchers
+            setupTabs();
+
+            // Setup Theme Toggler
+            setupTheme();
+
+            // Parse & Build Mindmap
+            renderMindmapFromEditor();
+
+            // Setup Global Event Listeners
+            setupControls();
+        });
+
+        // Setup Light/Dark Mode
+        function setupTheme() {
+            const themeBtn = document.getElementById('theme-btn');
+            themeBtn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.theme = isDark ? 'dark' : 'light';
+                
+                // Redraw svg grid based on darkmode
+                const container = document.getElementById('mindmap-container');
+                if (isDark) {
+                    container.classList.remove('grid-bg-light');
+                    container.classList.add('grid-bg-dark');
+                } else {
+                    container.classList.remove('grid-bg-dark');
+                    container.classList.add('grid-bg-light');
+                }
+                
+                // Re-render links and node styles to blend well
+                updateMindmap(d3Root);
+            });
+        }
+
+        // Setup tab selection
+        function setupTabs() {
+            const tabExploreBtn = document.getElementById('tab-explore-btn');
+            const tabDataBtn = document.getElementById('tab-data-btn');
+            const tabExplore = document.getElementById('tab-explore');
+            const tabData = document.getElementById('tab-data');
+
+            tabExploreBtn.addEventListener('click', () => {
+                tabExploreBtn.className = "flex-1 py-3 text-xs font-semibold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center justify-center space-x-2";
+                tabDataBtn.className = "flex-1 py-3 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center justify-center space-x-2";
+                tabExplore.classList.remove('hidden');
+                tabExplore.classList.add('flex');
+                tabData.classList.add('hidden');
+                tabData.classList.remove('flex');
+            });
+
+            tabDataBtn.addEventListener('click', () => {
+                tabDataBtn.className = "flex-1 py-3 text-xs font-semibold border-b-2 border-brand-500 text-brand-600 dark:text-brand-400 flex items-center justify-center space-x-2";
+                tabExploreBtn.className = "flex-1 py-3 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center justify-center space-x-2";
+                tabData.classList.remove('hidden');
+                tabData.classList.add('flex');
+                tabExplore.classList.add('hidden');
+                tabExplore.classList.remove('flex');
+            });
+        }
+
+        // UI Controls & Listeners
+        function setupControls() {
+            // Live Update Trigger
+            document.getElementById('apply-md-btn').addEventListener('click', () => {
+                renderMindmapFromEditor();
+                showToast("Cập nhật bản đồ thành công!", "check-circle");
+            });
+
+            // Search Filter
+            const searchInput = document.getElementById('search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            
+            searchInput.addEventListener('input', (e) => {
+                activeSearchQuery = e.target.value.trim().toLowerCase();
+                if (activeSearchQuery) {
+                    clearBtn.classList.remove('hidden');
+                    performSearchHighlight();
+                } else {
+                    clearBtn.classList.add('hidden');
+                    clearSearchHighlight();
+                }
+            });
+
+            clearBtn.addEventListener('click', () => {
+                searchInput.value = "";
+                activeSearchQuery = "";
+                clearBtn.classList.add('hidden');
+                clearSearchHighlight();
+            });
+
+            // Brand Selector Filter
+            const filterBrand = document.getElementById('filter-brand');
+            filterBrand.addEventListener('change', (e) => {
+                activeBrandFilter = e.target.value;
+                renderMindmapFromEditor();
+            });
+
+            // Zoom Controller Box
+            document.getElementById('zoom-in-btn').addEventListener('click', () => {
+                svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.25);
+            });
+
+            document.getElementById('zoom-out-btn').addEventListener('click', () => {
+                svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.8);
+            });
+
+            document.getElementById('zoom-reset-btn').addEventListener('click', () => {
+                resetZoomPosition();
+            });
+
+            document.getElementById('expand-all-btn').addEventListener('click', () => {
+                expandAllNodes(d3Root);
+                updateMindmap(d3Root);
+                showToast("Đã mở rộng tất cả các danh mục", "folder-open");
+            });
+
+            document.getElementById('collapse-all-btn').addEventListener('click', () => {
+                collapseAllNodes(d3Root);
+                updateMindmap(d3Root);
+                showToast("Đã thu gọn về cấp thương hiệu", "folder-closed");
+            });
+
+            // Inspector Closure
+            document.getElementById('close-inspector-btn').addEventListener('click', () => {
+                document.getElementById('inspector-panel').classList.add('translate-x-full');
+            });
+
+            // Clipboard Copy Tool
+            document.getElementById('copy-sku-btn').addEventListener('click', () => {
+                const skuInput = document.getElementById('inspector-sku-val');
+                skuInput.select();
+                // Safe clipboard fallback
+                document.execCommand('copy');
+                showToast(`Đã sao chép SKU: ${skuInput.value}`, "copy");
+            });
+
+            // Sidebar toggler
+            const sidebar = document.getElementById('sidebar');
+            document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+                sidebar.classList.toggle('w-0');
+                sidebar.classList.toggle('border-r');
+                sidebar.classList.toggle('overflow-hidden');
+            });
+
+            // PNG Exporter
+            document.getElementById('export-png-btn').addEventListener('click', () => {
+                exportMindmapToPNG();
+            });
+        }
+
+        // Search Highlight implementation
+        function performSearchHighlight() {
+            if (!activeSearchQuery) return;
+
+            // Expand all parents of matching nodes so they are visible
+            let matchesFound = 0;
+            d3Root.descendants().forEach(d => {
+                let match = false;
+                if (d.data.type === "C6") {
+                    match = d.data.name.toLowerCase().includes(activeSearchQuery) || 
+                            (d.data.desc && d.data.desc.toLowerCase().includes(activeSearchQuery));
+                } else {
+                    match = d.data.name.toLowerCase().includes(activeSearchQuery);
+                }
+
+                if (match) {
+                    matchesFound++;
+                    // Expand all ancestors
+                    let parent = d.parent;
+                    while (parent) {
+                        if (parent._children) {
+                            parent.children = parent._children;
+                            parent._children = null;
+                        }
+                        parent = parent.parent;
+                    }
+                    d.highlighted = true;
+                } else {
+                    d.highlighted = false;
+                }
+            });
+
+            updateMindmap(d3Root);
+            if (matchesFound > 0) {
+                showToast(`Tìm thấy ${matchesFound} kết quả khớp!`, "search");
+            } else {
+                showToast("Không tìm thấy kết quả phù hợp", "alert-triangle");
+            }
+        }
+
+        function clearSearchHighlight() {
+            d3Root.descendants().forEach(d => {
+                d.highlighted = false;
+            });
+            updateMindmap(d3Root);
+        }
+
+        // Toast Messages helper
+        function showToast(msg, iconName = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = msg;
+            toastIcon.setAttribute('data-lucide', iconName);
+            lucide.createIcons();
+
+            toast.className = "fixed bottom-6 right-6 transform translate-y-0 opacity-100 transition-all duration-300 ease-out z-50 flex items-center space-x-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 px-5 rounded-xl shadow-2xl";
+            
+            setTimeout(() => {
+                toast.className = "fixed bottom-6 right-6 transform translate-y-10 opacity-0 transition-all duration-300 ease-out z-50 flex items-center space-x-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 px-5 rounded-xl shadow-2xl pointer-events-none";
+            }, 3000);
+        }
+
+        // Markdown Parsing Engine to hierarchical JSON structured data mapping 6 deep levels
+        function parseProductTreeMarkdown(mdText) {
+            const lines = mdText.split('\n');
+            const root = { name: "PRODUCT TREE ROOT", type: "root", children: [] };
+            
+            let curC1 = null; // Brand
+            let curC2 = null; // Tier
+            let curC3 = null; // Level 3
+            let curC4 = null; // Level 4
+            let curC5 = null; // Level 5
+
+            lines.forEach((line) => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+
+                if (trimmed.startsWith('# 🌳 CẤP 1:')) {
+                    const name = trimmed.replace('# 🌳 CẤP 1:', '').replace('BRAND -', '').trim();
+                    curC1 = { name, type: "C1", level: 1, children: [] };
+                    root.children.push(curC1);
+                    curC2 = curC3 = curC4 = curC5 = null;
+                } 
+                else if (trimmed.startsWith('## 🔸 CẤP 2:')) {
+                    const name = trimmed.replace('## 🔸 CẤP 2:', '').replace('TIER -', '').trim();
+                    curC2 = { name, type: "C2", level: 2, children: [] };
+                    if (curC1) curC1.children.push(curC2);
+                    curC3 = curC4 = curC5 = null;
+                } 
+                else if (trimmed.startsWith('### 🔹 Cấp 3:')) {
+                    const name = trimmed.replace('### 🔹 Cấp 3:', '').trim();
+                    curC3 = { name, type: "C3", level: 3, children: [] };
+                    if (curC2) curC2.children.push(curC3);
+                    curC4 = curC5 = null;
+                } 
+                else if (trimmed.startsWith('#### ▫️ Cấp 4:')) {
+                    const name = trimmed.replace('#### ▫️ Cấp 4:', '').trim();
+                    curC4 = { name, type: "C4", level: 4, children: [] };
+                    if (curC3) curC3.children.push(curC4);
+                    curC5 = null;
+                } 
+                else if (trimmed.startsWith('##### ▪️ Cấp 5:')) {
+                    const name = trimmed.replace('##### ▪️ Cấp 5:', '').trim();
+                    curC5 = { name, type: "C5", level: 5, children: [] };
+                    if (curC4) curC4.children.push(curC5);
+                } 
+                else if (trimmed.startsWith('- Cấp 6 (SKU):')) {
+                    const content = trimmed.replace('- Cấp 6 (SKU):', '').trim();
+                    // Split "SKU-CODE (Description details of target product)"
+                    const match = content.match(/^([^\s(]+)\s*\((.*)\)$/);
+                    let skuCode = content;
+                    let desc = "";
+                    if (match) {
+                        skuCode = match[1];
+                        desc = match[2];
+                    }
+
+                    const skuLeaf = { name: skuCode, desc: desc, type: "C6", level: 6 };
+
+                    // Handle bypassed / unassigned level 5 layers (often indicated as "-" in db maps)
+                    if (curC5 && curC5.name !== '-') {
+                        curC5.children.push(skuLeaf);
+                    } else if (curC4) {
+                        // Bypass Level 5 entirely & bind directly to level 4
+                        curC4.children.push(skuLeaf);
+                    }
+                }
+            });
+
+            return root;
+        }
+
+        // Pull active MD data and rebuild Visualizations
+        function renderMindmapFromEditor() {
+            const rawText = document.getElementById('markdown-editor').value;
+            const parsedData = parseProductTreeMarkdown(rawText);
+            
+            // Apply Brand Filter logic on parsed structure
+            if (activeBrandFilter !== "ALL") {
+                const filteredC1 = parsedData.children.filter(b => b.name === activeBrandFilter);
+                rootNodeData = { ...parsedData, children: filteredC1 };
+            } else {
+                rootNodeData = parsedData;
+            }
+
+            // Populate Filter dropdown if empty
+            const brandFilterSelect = document.getElementById('filter-brand');
+            if (brandFilterSelect.options.length <= 1) {
+                const brands = parsedData.children.map(b => b.name);
+                brands.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    brandFilterSelect.appendChild(opt);
+                });
+            }
+
+            // Build Mindmap Hierarchy
+            buildD3Mindmap(rootNodeData);
+            
+            // Fill sidebar helper widgets
+            populateQuickLists();
+            calculateAndDisplayStats(parsedData);
+        }
+
+        // Calculate product counts and metrics dynamically
+        function calculateAndDisplayStats(fullData) {
+            let totalBrands = fullData.children.length;
+            let totalTiers = 0;
+            let totalSkus = 0;
+            
+            const tierNames = new Set();
+            
+            fullData.children.forEach(brand => {
+                brand.children.forEach(tier => {
+                    tierNames.add(tier.name);
+                    
+                    // Traverse deep to count SKUs
+                    const countSKUs = (node) => {
+                        if (node.type === "C6") {
+                            totalSkus++;
+                        }
+                        if (node.children) {
+                            node.children.forEach(countSKUs);
+                        }
+                    };
+                    countSKUs(tier);
+                });
+            });
+
+            document.getElementById('stat-brands').innerText = totalBrands;
+            document.getElementById('stat-tiers').innerText = tierNames.size;
+            document.getElementById('stat-skus').innerText = totalSkus;
+        }
+
+        // Populating Explorer side-accordion list for immediate item search / pinpointing
+        function populateQuickLists() {
+            const catContainer = document.getElementById('quick-category-list');
+            const skuContainer = document.getElementById('quick-sku-list');
+            
+            catContainer.innerHTML = "";
+            skuContainer.innerHTML = "";
+
+            const categories = [];
+            const skus = [];
+
+            // Traverse current view data
+            const traverse = (node, path = []) => {
+                const currentPath = [...path, node.name];
+                if (node.type === "C3" || node.type === "C4") {
+                    categories.push({ name: node.name, type: node.type, path: currentPath, nodeRef: node });
+                }
+                if (node.type === "C6") {
+                    skus.push({ name: node.name, desc: node.desc, path: currentPath, nodeRef: node });
+                }
+                if (node.children) node.children.forEach(c => traverse(c, currentPath));
+                if (node._children) node._children.forEach(c => traverse(c, currentPath));
+            };
+
+            rootNodeData.children.forEach(b => traverse(b, []));
+
+            // Populate Category selectors
+            document.getElementById('quick-list-count').innerText = categories.length;
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left text-xs p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition flex items-center space-x-2 text-slate-600 dark:text-slate-300 font-medium";
+                btn.innerHTML = `<i data-lucide="tag" class="w-3.5 h-3.5 shrink-0 text-amber-500"></i><span class="truncate">${cat.name} (${cat.type})</span>`;
+                btn.addEventListener('click', () => {
+                    focusOnNodeByName(cat.name);
+                });
+                catContainer.appendChild(btn);
+            });
+
+            // Populate SKU lists
+            document.getElementById('sku-list-count').innerText = skus.length;
+            skus.forEach(sku => {
+                const containerDiv = document.createElement('div');
+                containerDiv.className = "p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition flex items-center justify-between text-xs";
+                
+                const labelBtn = document.createElement('button');
+                labelBtn.className = "text-left truncate font-mono text-rose-600 dark:text-rose-400 font-bold shrink-0 mr-2";
+                labelBtn.innerText = sku.name;
+                labelBtn.addEventListener('click', () => {
+                    focusOnNodeByName(sku.name);
+                });
+
+                const descSpan = document.createElement('span');
+                descSpan.className = "text-slate-400 dark:text-slate-500 text-[11px] truncate flex-1 text-right";
+                descSpan.innerText = sku.desc;
+
+                containerDiv.appendChild(labelBtn);
+                containerDiv.appendChild(descSpan);
+                skuContainer.appendChild(containerDiv);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Direct node locator helper via sidebar action clicks
+        function focusOnNodeByName(name) {
+            let matchedNode = null;
+            d3Root.descendants().forEach(d => {
+                if (d.data.name === name) {
+                    matchedNode = d;
+                    // Auto-expand parents
+                    let parent = d.parent;
+                    while (parent) {
+                        if (parent._children) {
+                            parent.children = parent._children;
+                            parent._children = null;
+                        }
+                        parent = parent.parent;
+                    }
+                }
+            });
+
+            if (matchedNode) {
+                updateMindmap(d3Root);
+                
+                // Focus & zoom smoothly on coordinate
+                const transform = d3.zoomIdentity
+                    .translate(window.innerWidth / 3 - matchedNode.y, window.innerHeight / 2 - matchedNode.x)
+                    .scale(1.1);
+                
+                svg.transition().duration(800).call(zoomBehavior.transform, transform);
+                
+                // Inspect Node
+                inspectNode(matchedNode);
+                
+                // Temporary pulsing color style ring
+                d3.select(`#node-${matchedNode.id} rect`)
+                    .transition().duration(200)
+                    .attr('stroke-width', 5)
+                    .attr('stroke', '#e11d48')
+                    .transition().duration(800)
+                    .attr('stroke', d => levelColors[d.data.level || 0].border)
+                    .attr('stroke-width', 1.5);
+            }
+        }
+
+        // Mindmap visual representation constructor using d3 hierarchies
+        function buildD3Mindmap(data) {
+            // Clear current svg elements
+            d3.select("#mindmap-svg").selectAll("*").remove();
+
+            svg = d3.select("#mindmap-svg");
+            const width = document.getElementById('mindmap-container').clientWidth;
+            const height = document.getElementById('mindmap-container').clientHeight;
+
+            gElement = svg.append("g").attr("class", "viewport-group");
+
+            // Setup Zoom capabilities
+            zoomBehavior = d3.zoom()
+                .scaleExtent([0.1, 3])
+                .on("zoom", (event) => {
+                    gElement.attr("transform", event.transform);
+                });
+
+            svg.call(zoomBehavior);
+
+            // Turn raw JSON layout into tree architecture
+            d3Root = d3.hierarchy(data);
+            d3Root.x0 = height / 2;
+            d3Root.y0 = 0;
+
+            // Set unique ID for nodes
+            let idCounter = 0;
+            d3Root.descendants().forEach(d => {
+                d.id = ++idCounter;
+            });
+
+            // Initial view state: collapse nodes past level 2 (Tier) to ensure clean workspace
+            d3Root.descendants().forEach(d => {
+                if (d.depth > 2) {
+                    collapseNode(d);
+                }
+            });
+
+            // Draw full tree view
+            updateMindmap(d3Root);
+            
+            // Adjust position
+            resetZoomPosition();
+        }
+
+        function collapseNode(d) {
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+            }
+        }
+
+        function expandNode(d) {
+            if (d._children) {
+                d.children = d._children;
+                d._children = null;
+            }
+        }
+
+        function expandAllNodes(d) {
+            expandNode(d);
+            if (d.children) {
+                d.children.forEach(expandAllNodes);
+            }
+            if (d._children) {
+                d._children.forEach(expandAllNodes);
+            }
+        }
+
+        function collapseAllNodes(d) {
+            if (d.depth >= 2) {
+                collapseNode(d);
+            }
+            if (d.children) d.children.forEach(collapseAllNodes);
+            if (d._children) d._children.forEach(collapseAllNodes);
+        }
+
+        function resetZoomPosition() {
+            const width = document.getElementById('mindmap-container').clientWidth;
+            const height = document.getElementById('mindmap-container').clientHeight;
+            
+            // Position root node slightly shifted left-centered
+            const transform = d3.zoomIdentity.translate(80, height / 2).scale(0.85);
+            svg.transition().duration(600).call(zoomBehavior.transform, transform);
+        }
+
+        // D3 Tree structural recalculator & redrawing
+        function updateMindmap(source) {
+            const isDark = document.documentElement.classList.contains('dark');
+
+            // Calculate tree layout size dynamically based on depth and nodes
+            const treeLayout = d3.tree().nodeSize([45, levelSpacing]);
+            const rootTree = treeLayout(d3Root);
+
+            const nodes = rootTree.descendants();
+            const links = rootTree.links();
+
+            // Set horizontal layers evenly
+            nodes.forEach(d => {
+                d.y = d.depth * levelSpacing;
+            });
+
+            // --- Draw Nodes ---
+            const nodeSelection = gElement.selectAll("g.node")
+                .data(nodes, d => d.id);
+
+            // Create new nodes
+            const nodeEnter = nodeSelection.enter().append("g")
+                .attr("class", "node")
+                .attr("id", d => `node-${d.id}`)
+                .attr("transform", d => `translate(${source.y0},${source.x0})`)
+                .on("click", (event, d) => {
+                    // Left click expands/collapses
+                    if (d.children) {
+                        d._children = d.children;
+                        d.children = null;
+                    } else {
+                        d.children = d._children;
+                        d._children = null;
+                    }
+                    updateMindmap(d);
+                    inspectNode(d);
+                });
+
+            // Append container rect pill
+            nodeEnter.append("rect")
+                .attr("rx", 8)
+                .attr("ry", 8)
+                .attr("y", -nodeHeight / 2)
+                .attr("x", 0)
+                .attr("width", nodeWidth)
+                .attr("height", nodeHeight)
+                .attr("fill", d => levelColors[d.data.level || 0].bg)
+                .attr("stroke", d => levelColors[d.data.level || 0].border)
+                .attr("stroke-width", 1.5)
+                .attr("fill-opacity", 0.9);
+
+            // Node Text Label
+            nodeEnter.append("text")
+                .attr("dy", "0.31em")
+                .attr("x", 12)
+                .attr("text-anchor", "start")
+                .attr("fill", d => levelColors[d.data.level || 0].text)
+                .style("font-size", "11px")
+                .style("font-weight", d => d.data.level < 3 ? "bold" : "500")
+                .text(d => truncateText(d.data.name, 22));
+
+            // Node description / subtext indicators for level 6 SKU
+            nodeEnter.filter(d => d.data.type === "C6" && d.data.desc)
+                .append("text")
+                .attr("dy", "1.4em")
+                .attr("x", 12)
+                .attr("fill", "#cbd5e1")
+                .style("font-size", "8.5px")
+                .text(d => truncateText(d.data.desc, 28));
+
+            // Expand / Collapse circular tag trigger icon
+            const expanderGroup = nodeEnter.filter(d => d.depth > 0 && (d.children || d._children || d.data.children))
+                .append("g")
+                .attr("class", "expander-trigger")
+                .attr("transform", `translate(${nodeWidth}, 0)`);
+
+            expanderGroup.append("circle")
+                .attr("r", 7.5)
+                .attr("fill", isDark ? "#1e293b" : "#f1f5f9")
+                .attr("stroke", d => levelColors[d.data.level || 0].border)
+                .attr("stroke-width", 1.2);
+
+            expanderGroup.append("text")
+                .attr("dy", "0.33em")
+                .attr("text-anchor", "middle")
+                .style("font-size", "11px")
+                .style("font-weight", "bold")
+                .attr("fill", isDark ? "#94a3b8" : "#475569")
+                .text(d => d._children ? "+" : "−");
+
+            // --- Update Active State ---
+            const nodeUpdate = nodeSelection.merge(nodeEnter);
+
+            nodeUpdate.transition().duration(350)
+                .attr("transform", d => `translate(${d.y},${d.x})`);
+
+            nodeUpdate.select("rect")
+                .attr("fill", d => {
+                    if (d.highlighted) return "#e11d48"; // Vibrant crimson for highlighted query results
+                    return levelColors[d.data.level || 0].bg;
+                })
+                .attr("stroke", d => d.highlighted ? "#f43f5e" : levelColors[d.data.level || 0].border)
+                .attr("stroke-width", d => d.highlighted ? 3 : 1.5)
+                .attr("fill-opacity", d => d.highlighted ? 1.0 : 0.9);
+
+            // Update node expander text state (+ or -)
+            nodeUpdate.select(".expander-trigger text")
+                .text(d => d._children ? "+" : "−");
+
+            // --- Remove Exiting Nodes ---
+            const nodeExit = nodeSelection.exit().transition().duration(350)
+                .attr("transform", d => `translate(${source.y},${source.x})`)
+                .remove();
+
+            nodeExit.select("rect").attr("width", 0).attr("height", 0);
+
+            // --- Draw Bezier Connector Links ---
+            const linkSelection = gElement.selectAll("path.link")
+                .data(links, d => d.target.id);
+
+            // Smooth cubic paths
+            const linkPathGenerator = d3.linkHorizontal()
+                .x(d => d.y + (d.depth > 0 ? 0 : 0)) // Offset adjust
+                .y(d => d.x);
+
+            const linkEnter = linkSelection.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("stroke", isDark ? "#334155" : "#cbd5e1")
+                .attr("d", d => {
+                    const o = { x: source.x0, y: source.y0 };
+                    return linkPathGenerator({ source: o, target: o });
+                });
+
+            const linkUpdate = linkSelection.merge(linkEnter);
+
+            linkUpdate.transition().duration(350)
+                .attr("stroke", d => {
+                    if (d.target.highlighted) return "#f43f5e"; // Highlighted connections
+                    return isDark ? "#475569" : "#cbd5e1";
+                })
+                .attr("class", d => d.target.highlighted ? "link highlighted" : "link")
+                .attr("d", d => {
+                    // Adjust connect line to start from end of parent pill
+                    const adjustedSource = { x: d.source.x, y: d.source.y + nodeWidth };
+                    const adjustedTarget = { x: d.target.x, y: d.target.y };
+                    return linkPathGenerator({ source: adjustedSource, target: adjustedTarget });
+                });
+
+            linkSelection.exit().transition().duration(350)
+                .attr("d", d => {
+                    const o = { x: source.x, y: source.y };
+                    return linkPathGenerator({ source: o, target: o });
+                })
+                .remove();
+
+            // Cache old position mapping for animated transitions
+            nodes.forEach(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+
+        // Text truncation helper to keep labels clean
+        function truncateText(str, length) {
+            if (!str) return "";
+            return str.length > length ? str.substring(0, length) + "..." : str;
+        }
+
+        // Node Inspector Controller
+        function inspectNode(d) {
+            const panel = document.getElementById('inspector-panel');
+            panel.classList.remove('translate-x-full');
+
+            // Set Breadcrumb Category Path
+            const pathContainer = document.getElementById('inspector-path');
+            pathContainer.innerHTML = "";
+            
+            const ancestors = d.ancestors().reverse();
+            ancestors.forEach((anc, idx) => {
+                if (anc.depth === 0) return; // Skip generic Root node
+
+                const span = document.createElement('span');
+                span.className = "px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] uppercase font-bold";
+                span.innerText = anc.data.name;
+                pathContainer.appendChild(span);
+
+                if (idx < ancestors.length - 1) {
+                    const chev = document.createElement('i');
+                    chev.setAttribute('data-lucide', 'chevron-right');
+                    chev.className = "w-3 h-3 text-slate-400";
+                    pathContainer.appendChild(chev);
+                }
+            });
+
+            // Set dynamic text properties inside panel view
+            document.getElementById('inspector-level').innerText = `CẤP ${d.data.level || d.depth} (${getNodeLevelName(d.data.level || d.depth)})`;
+            document.getElementById('inspector-title').innerText = d.data.name;
+            document.getElementById('inspector-desc').innerText = d.data.desc || "Không có thông tin mô tả chi tiết cho danh mục sản phẩm này.";
+
+            // Show Brand & Tier
+            let brandName = "Default";
+            let tierName = "N/A";
+            
+            ancestors.forEach(a => {
+                if (a.data.type === "C1") brandName = a.data.name;
+                if (a.data.type === "C2") tierName = a.data.name;
+            });
+
+            document.getElementById('inspector-brand').innerText = brandName;
+            document.getElementById('inspector-tier').innerText = tierName;
+
+            // Display SKU actions if Level 6 leaf node
+            const skuBox = document.getElementById('inspector-sku-box');
+            if (d.data.type === "C6") {
+                skuBox.classList.remove('hidden');
+                document.getElementById('inspector-sku-val').value = d.data.name;
+            } else {
+                skuBox.classList.add('hidden');
+            }
+
+            lucide.createIcons();
+        }
+
+        function getNodeLevelName(level) {
+            switch(level) {
+                case 1: return "BRAND";
+                case 2: return "TIER";
+                case 3: return "DANH MỤC";
+                case 4: return "DÒNG SẢN PHẨM";
+                case 5: return "PHÂN LOẠI";
+                case 6: return "MÃ SKU";
+                default: return "HỆ THỐNG";
+            }
+        }
+
+        // SVG to PNG Exporter tool utilizing canvas render bounds
+        function exportMindmapToPNG() {
+            showToast("Đang chuẩn bị file tải xuống...", "loader");
+            const svgEl = document.getElementById('mindmap-svg');
+            
+            // Temporary high definition render
+            const serializer = new XMLSerializer();
+            let source = serializer.serializeToString(svgEl);
+
+            // Add standard xml headers
+            if(!source.match(/^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/)){
+                source = source.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"');
+            }
+            if(!source.match(/^<svg[^>]+xmlns\:xlink="http\:\/\/www\.w3\.org\/1999\/xlink"/)){
+                source = source.replace(/^<svg/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+            }
+
+            const img = new Image();
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(source);
+            
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = svgEl.clientWidth * 2; // Increase resolution
+                canvas.height = svgEl.clientHeight * 2;
+                
+                const context = canvas.getContext('2d');
+                context.scale(2, 2);
+                
+                // Draw background color based on system light/dark mode
+                const isDark = document.documentElement.classList.contains('dark');
+                context.fillStyle = isDark ? "#0f172a" : "#ffffff";
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                
+                context.drawImage(img, 0, 0);
+                
+                const a = document.createElement('a');
+                a.download = 'product-tree-mindmap.png';
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+                
+                showToast("Tải ảnh Mindmap PNG thành công!", "download");
+            };
+        }
+    </script>
+</body>
+</html>
